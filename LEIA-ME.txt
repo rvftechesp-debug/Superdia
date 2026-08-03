@@ -1,0 +1,25 @@
+SUPER DIA EXPRESS - SISTEMA DE CONTROLE DE VALIDADE
+=====================================================
+
+Como usar:
+1. Mantenha as 3 pastas/arquivos juntos, sem separar:
+   - index.html
+   - css/estilo.css
+   - js/app.js
+
+2. Para abrir o sistema, dê duplo clique no arquivo "index.html".
+   Ele abre direto no navegador (Chrome, Edge, Firefox etc).
+
+3. Não é necessário instalar nada nem ter internet,
+   exceto para carregar as fontes do sistema (Google Fonts).
+
+Estrutura de pastas:
+   super-dia-express/
+   |-- index.html        (estrutura do sistema)
+   |-- css/
+   |   |-- estilo.css     (visual: cores, layout)
+   |-- js/
+       |-- app.js         (login, cadastro, busca, relatorio, alertas)
+
+Qualquer alteracao de cor ou texto pode ser feita no arquivo estilo.css.
+Qualquer alteracao de funcionamento pode ser feita no arquivo app.js.
