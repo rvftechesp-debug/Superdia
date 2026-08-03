@@ -431,7 +431,7 @@ async function abrirScanner(){
     leitorCodigoBarras = new ZXing.BrowserMultiFormatReader();
     const videoEl = document.getElementById('scanner-video');
 
-    const dispositivos = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+    const dispositivos = await leitorCodigoBarras.listVideoInputDevices();
     // prioriza câmera traseira em celulares
     const traseira = dispositivos.find(d => /back|traseira|rear|environment/i.test(d.label));
     const idCamera = traseira ? traseira.deviceId : (dispositivos[0] ? dispositivos[0].deviceId : undefined);
