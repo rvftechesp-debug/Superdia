@@ -451,7 +451,12 @@ async function abrirScanner(){
     });
   }catch(e){
     console.error(e);
-    statusEl.textContent = 'Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+    let motivo = 'Verifique as permissões do navegador.';
+    if(e && e.name === 'NotAllowedError') motivo = 'Permissão de câmera negada. Libere o acesso à câmera para este site.';
+    else if(e && e.name === 'NotFoundError') motivo = 'Nenhuma câmera foi encontrada neste dispositivo.';
+    else if(e && e.name === 'NotReadableError') motivo = 'A câmera já está sendo usada por outro aplicativo.';
+    else if(e && e.message) motivo = e.message;
+    statusEl.textContent = 'Não foi possível acessar a câmera. ' + motivo;
     statusEl.className = 'scanner-status erro';
   }
 }
