@@ -396,6 +396,7 @@ main{
 .selo-verde{background:var(--verde-bg); color:var(--verde);}
 .selo-laranja{background:var(--laranja-bg); color:var(--laranja);}
 .selo-alerta{background:var(--alerta-bg); color:var(--alerta);}
+.selo-azul{background:#E3EEFC; color:#1D5FC2;}
 
 /* painel/card genérico */
 .painel{

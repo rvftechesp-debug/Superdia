@@ -20,6 +20,18 @@ async function carregarProdutos(){
   return data || [];
 }
 
+async function registrarLog(acao, detalhes, usuarioOverride){
+  try{
+    await sb.from('logs_atividade').insert([{
+      usuario: usuarioOverride || usuarioLogado || 'desconhecido',
+      acao,
+      detalhes
+    }]);
+  }catch(e){
+    console.error('Erro ao registrar log:', e);
+  }
+}
+
 async function iniciar(){
   usuarios = await carregarUsuarios();
   produtos = await carregarProdutos();
@@ -76,6 +88,7 @@ async function criarConta(ev){
     return false;
   }
   usuarios = await carregarUsuarios();
+  await registrarLog('criacao_conta', `Nova conta criada: ${usuario}${tipo==='admin' ? ' (administrador)' : ''}`, usuario);
   mostrarMsgLogin(tipo === 'admin' ? 'Conta criada como administrador! Faça login.' : 'Conta criada com sucesso! Faça login.', 'sucesso');
   document.getElementById('form-criar').reset();
   setTimeout(() => mudarAbaLogin('entrar'), 900);
@@ -113,6 +126,7 @@ function entrarNoApp(){
   document.getElementById('app').classList.remove('oculto');
   document.getElementById('nome-usuario-logado').textContent = usuarioLogado;
   document.getElementById('tab-btn-usuarios').classList.toggle('oculto', usuarioLogadoTipo !== 'admin');
+  document.getElementById('tab-btn-logs').classList.toggle('oculto', usuarioLogadoTipo !== 'admin');
   mudarAba('painel');
   renderizarTudo();
   verificarAlertaSemana();
@@ -122,13 +136,14 @@ function entrarNoApp(){
    NAVEGAÇÃO ENTRE ABAS
    ========================================================= */
 function mudarAba(qual){
-  if(qual === 'usuarios' && usuarioLogadoTipo !== 'admin') qual = 'painel';
-  ['painel','cadastro','busca','relatorio','usuarios'].forEach(a=>{
+  if((qual === 'usuarios' || qual === 'logs') && usuarioLogadoTipo !== 'admin') qual = 'painel';
+  ['painel','cadastro','busca','relatorio','usuarios','logs'].forEach(a=>{
     document.getElementById('tab-'+a).classList.toggle('oculto', a!==qual);
     document.getElementById('tab-btn-'+a).classList.toggle('ativa', a===qual);
   });
   if(qual==='busca') renderizarBusca();
   if(qual==='usuarios') renderizarUsuarios();
+  if(qual==='logs') renderizarLogs();
 }
 
 /* =========================================================
@@ -193,6 +208,7 @@ async function salvarProduto(ev){
       return false;
     }
     mostrarMsgCadastro('Produto atualizado com sucesso!', 'sucesso');
+    await registrarLog('edicao_produto', `Produto editado: ${nome} (lote ${lote})`);
   } else {
     const { error } = await sb.from('produtos')
       .insert([{ nome, validade, lote, quantidade, codigo, cadastrado_por: usuarioLogado }]);
@@ -202,6 +218,7 @@ async function salvarProduto(ev){
       return false;
     }
     mostrarMsgCadastro('Produto cadastrado com sucesso!', 'sucesso');
+    await registrarLog('cadastro_produto', `Produto cadastrado: ${nome} (lote ${lote})`);
   }
 
   produtos = await carregarProdutos();
@@ -235,11 +252,15 @@ function cancelarEdicao(){
 
 async function excluirProduto(id){
   if(!confirm('Tem certeza que deseja excluir este produto?')) return;
+  const produtoAlvo = produtos.find(p => p.id === id);
   const { error } = await sb.from('produtos').delete().eq('id', id);
   if(error){
     alert('Não foi possível excluir o produto.');
     console.error(error);
     return;
+  }
+  if(produtoAlvo){
+    await registrarLog('exclusao_produto', `Produto excluído: ${produtoAlvo.nome} (lote ${produtoAlvo.lote})`);
   }
   produtos = await carregarProdutos();
   renderizarTudo();
@@ -500,6 +521,47 @@ function renderizarUsuarios(){
       <td><strong>${escapeHtml(u.usuario)}</strong></td>
       <td>${seloTipo}</td>
       <td>${criado}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* =========================================================
+   LOGS DE ATIVIDADE (ADMIN)
+   ========================================================= */
+const ROTULOS_ACAO = {
+  cadastro_produto: {texto:'Cadastro de produto', classe:'selo-verde'},
+  edicao_produto:   {texto:'Edição de produto',   classe:'selo-azul'},
+  exclusao_produto: {texto:'Exclusão de produto',  classe:'selo-alerta'},
+  criacao_conta:    {texto:'Criação de conta',     classe:'selo-laranja'}
+};
+
+async function renderizarLogs(){
+  const corpo = document.getElementById('tbody-logs');
+  corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Carregando...</div></td></tr>`;
+
+  const { data, error } = await sb.from('logs_atividade')
+    .select('*')
+    .order('criado_em', {ascending:false})
+    .limit(200);
+
+  if(error){
+    corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Não foi possível carregar os logs.</div></td></tr>`;
+    console.error(error);
+    return;
+  }
+  if(!data || data.length === 0){
+    corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Nenhuma atividade registrada ainda.</div></td></tr>`;
+    return;
+  }
+
+  corpo.innerHTML = data.map(l => {
+    const dataHora = l.criado_em ? new Date(l.criado_em).toLocaleString('pt-BR') : '—';
+    const rotulo = ROTULOS_ACAO[l.acao] || {texto: l.acao, classe:'selo-verde'};
+    return `<tr>
+      <td>${dataHora}</td>
+      <td><strong>${escapeHtml(l.usuario)}</strong></td>
+      <td><span class="selo ${rotulo.classe}">${rotulo.texto}</span></td>
+      <td>${escapeHtml(l.detalhes || '—')}</td>
     </tr>`;
   }).join('');
 }

@@ -85,6 +85,7 @@
     <button id="tab-btn-busca" onclick="mudarAba('busca')">🔍 Buscar produtos</button>
     <button id="tab-btn-relatorio" onclick="mudarAba('relatorio')">📋 Relatório</button>
     <button id="tab-btn-usuarios" class="oculto" onclick="mudarAba('usuarios')">👤 Usuários</button>
+    <button id="tab-btn-logs" class="oculto" onclick="mudarAba('logs')">🕓 Logs</button>
   </nav>
 
   <main>
@@ -239,6 +240,21 @@
             <th>Usuário</th><th>Perfil</th><th>Criado em</th>
           </tr></thead>
           <tbody id="tbody-usuarios"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== LOGS (ADMIN) ===== -->
+    <section id="tab-logs" class="oculto">
+      <div class="secao-titulo">Logs de atividade</div>
+      <div class="secao-sub">Histórico de cadastros, edições e exclusões de produtos, e criação de contas</div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr>
+            <th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th>
+          </tr></thead>
+          <tbody id="tbody-logs"></tbody>
         </table>
       </div>
     </section>
