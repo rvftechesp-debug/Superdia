@@ -148,6 +148,64 @@ body{
 }
 .campo input:focus, .campo select:focus{border-color:var(--vermelho);}
 
+/* campo com botão de câmera (leitor de código de barras) */
+.campo-com-icone{
+  display:flex;
+  gap:8px;
+}
+.campo-com-icone input{flex:1;}
+.btn-camera{
+  flex-shrink:0;
+  width:44px;
+  border:1.5px solid var(--vermelho);
+  background:var(--vermelho);
+  color:var(--branco);
+  border-radius:9px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background .15s;
+}
+.btn-camera:hover{background:var(--vermelho-escuro);}
+.btn-camera:active{transform:scale(0.96);}
+
+/* modal do scanner */
+.modal-scanner-caixa{max-width:420px;}
+.modal-corpo-scanner{padding:18px 22px; display:flex; flex-direction:column; align-items:center; gap:12px;}
+#scanner-video-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:4/3;
+  background:#000;
+  border-radius:12px;
+  overflow:hidden;
+}
+#scanner-video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.scanner-mira{
+  position:absolute;
+  left:10%;
+  right:10%;
+  top:42%;
+  height:16%;
+  border:2px solid var(--amarelo);
+  border-radius:6px;
+  box-shadow:0 0 0 999px rgba(0,0,0,0.35);
+  pointer-events:none;
+}
+.scanner-status{
+  font-size:13px;
+  color:var(--cinza);
+  font-weight:600;
+  text-align:center;
+}
+.scanner-status.erro{color:var(--alerta);}
+.scanner-status.sucesso{color:var(--verde);}
+
 .btn{
   display:inline-flex;
   align-items:center;

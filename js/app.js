@@ -408,3 +408,60 @@ function verificarAlertaSemana(){
 function fecharModal(){
   document.getElementById('modal-alerta').classList.add('oculto');
 }
+
+/* =========================================================
+   SCANNER DE CÓDIGO DE BARRAS (câmera)
+   ========================================================= */
+let leitorCodigoBarras = null;
+let streamCameraAtual = null;
+
+async function abrirScanner(){
+  document.getElementById('modal-scanner').classList.remove('oculto');
+  const statusEl = document.getElementById('scanner-status');
+  statusEl.textContent = 'Iniciando câmera...';
+  statusEl.className = 'scanner-status';
+
+  if(typeof ZXing === 'undefined'){
+    statusEl.textContent = 'Não foi possível carregar o leitor. Verifique sua internet.';
+    statusEl.className = 'scanner-status erro';
+    return;
+  }
+
+  try{
+    leitorCodigoBarras = new ZXing.BrowserMultiFormatReader();
+    const videoEl = document.getElementById('scanner-video');
+
+    const dispositivos = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+    // prioriza câmera traseira em celulares
+    const traseira = dispositivos.find(d => /back|traseira|rear|environment/i.test(d.label));
+    const idCamera = traseira ? traseira.deviceId : (dispositivos[0] ? dispositivos[0].deviceId : undefined);
+
+    statusEl.textContent = 'Aponte para o código de barras...';
+
+    leitorCodigoBarras.decodeFromVideoDevice(idCamera, videoEl, (resultado, erro, controls) => {
+      streamCameraAtual = controls;
+      if(resultado){
+        const codigoLido = resultado.getText();
+        document.getElementById('p-codigo').value = codigoLido;
+        statusEl.textContent = 'Código lido: ' + codigoLido;
+        statusEl.className = 'scanner-status sucesso';
+        if(navigator.vibrate) navigator.vibrate(120);
+        setTimeout(fecharScanner, 700);
+      }
+    });
+  }catch(e){
+    console.error(e);
+    statusEl.textContent = 'Não foi possível acessar a câmera. Verifique as permissões do navegador.';
+    statusEl.className = 'scanner-status erro';
+  }
+}
+
+function fecharScanner(){
+  try{
+    if(leitorCodigoBarras){
+      leitorCodigoBarras.reset();
+      leitorCodigoBarras = null;
+    }
+  }catch(e){ /* ignora */ }
+  document.getElementById('modal-scanner').classList.add('oculto');
+}
