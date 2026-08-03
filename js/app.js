@@ -6,6 +6,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let usuarios = [];
 let produtos = [];
 let usuarioLogado = null;
+let usuarioLogadoTipo = 'comum';
 
 async function carregarUsuarios(){
   const { data, error } = await sb.from('usuarios').select('*');
@@ -30,6 +31,8 @@ async function iniciar(){
 
   if(sessao){
     usuarioLogado = sessao;
+    const u = usuarios.find(x => x.usuario === sessao);
+    usuarioLogadoTipo = u ? (u.tipo || 'comum') : 'comum';
     entrarNoApp();
   }
 }
@@ -65,14 +68,15 @@ async function criarConta(ev){
     mostrarMsgLogin('Esse usuário já existe. Tente outro nome.', 'erro');
     return false;
   }
-  const { error } = await sb.from('usuarios').insert([{ usuario, senha }]);
+  const tipo = usuarios.length === 0 ? 'admin' : 'comum';
+  const { error } = await sb.from('usuarios').insert([{ usuario, senha, tipo }]);
   if(error){
     mostrarMsgLogin('Não foi possível criar a conta. Tente novamente.', 'erro');
     console.error(error);
     return false;
   }
   usuarios = await carregarUsuarios();
-  mostrarMsgLogin('Conta criada com sucesso! Faça login.', 'sucesso');
+  mostrarMsgLogin(tipo === 'admin' ? 'Conta criada como administrador! Faça login.' : 'Conta criada com sucesso! Faça login.', 'sucesso');
   document.getElementById('form-criar').reset();
   setTimeout(() => mudarAbaLogin('entrar'), 900);
   return false;
@@ -89,6 +93,7 @@ async function fazerLogin(ev){
     return false;
   }
   usuarioLogado = encontrado.usuario;
+  usuarioLogadoTipo = encontrado.tipo || 'comum';
   localStorage.setItem('sessaoAtual', usuarioLogado);
   entrarNoApp();
   return false;
@@ -96,6 +101,7 @@ async function fazerLogin(ev){
 
 async function fazerLogout(){
   usuarioLogado = null;
+  usuarioLogadoTipo = 'comum';
   localStorage.removeItem('sessaoAtual');
   document.getElementById('app').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
@@ -106,6 +112,7 @@ function entrarNoApp(){
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('app').classList.remove('oculto');
   document.getElementById('nome-usuario-logado').textContent = usuarioLogado;
+  document.getElementById('tab-btn-usuarios').classList.toggle('oculto', usuarioLogadoTipo !== 'admin');
   mudarAba('painel');
   renderizarTudo();
   verificarAlertaSemana();
@@ -115,11 +122,13 @@ function entrarNoApp(){
    NAVEGAÇÃO ENTRE ABAS
    ========================================================= */
 function mudarAba(qual){
-  ['painel','cadastro','busca','relatorio'].forEach(a=>{
+  if(qual === 'usuarios' && usuarioLogadoTipo !== 'admin') qual = 'painel';
+  ['painel','cadastro','busca','relatorio','usuarios'].forEach(a=>{
     document.getElementById('tab-'+a).classList.toggle('oculto', a!==qual);
     document.getElementById('tab-btn-'+a).classList.toggle('ativa', a===qual);
   });
   if(qual==='busca') renderizarBusca();
+  if(qual==='usuarios') renderizarUsuarios();
 }
 
 /* =========================================================
@@ -186,7 +195,7 @@ async function salvarProduto(ev){
     mostrarMsgCadastro('Produto atualizado com sucesso!', 'sucesso');
   } else {
     const { error } = await sb.from('produtos')
-      .insert([{ nome, validade, lote, quantidade, codigo }]);
+      .insert([{ nome, validade, lote, quantidade, codigo, cadastrado_por: usuarioLogado }]);
     if(error){
       mostrarMsgCadastro('Não foi possível cadastrar o produto.', 'erro');
       console.error(error);
@@ -276,7 +285,7 @@ function renderizarPainel(){
 
   const corpo = document.getElementById('tbody-painel-semana');
   if(listaSemana.length === 0){
-    corpo.innerHTML = `<tr><td colspan="6"><div class="vazio"><div class="icone-vazio">✅</div>Nenhum produto vencendo esta semana.</div></td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="7"><div class="vazio"><div class="icone-vazio">✅</div>Nenhum produto vencendo esta semana.</div></td></tr>`;
   } else {
     corpo.innerHTML = listaSemana.map(linhaTabela).join('');
   }
@@ -290,6 +299,7 @@ function linhaTabela(p, comAcoes){
     <td>${p.quantidade}</td>
     <td>${formatarDataBR(p.validade)}</td>
     <td>${seloHtml(p.validade)}</td>
+    <td>${escapeHtml(p.cadastrado_por || '—')}</td>
     ${comAcoes ? `<td class="acoes-tabela">
       <button class="btn btn-secundario btn-pequeno" onclick="editarProduto('${p.id}')">Editar</button>
       <button class="btn btn-perigo btn-pequeno" onclick="excluirProduto('${p.id}')">Excluir</button>
@@ -319,7 +329,7 @@ function renderizarBusca(){
 
   const corpo = document.getElementById('tbody-busca');
   if(lista.length === 0){
-    corpo.innerHTML = `<tr><td colspan="7"><div class="vazio"><div class="icone-vazio">📦</div>${produtos.length===0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto encontrado para essa busca.'}</div></td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="8"><div class="vazio"><div class="icone-vazio">📦</div>${produtos.length===0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto encontrado para essa busca.'}</div></td></tr>`;
   } else {
     corpo.innerHTML = lista.map(p => linhaTabela(p, true)).join('');
   }
@@ -373,7 +383,7 @@ function gerarRelatorio(){
   resumo.innerHTML = `<div class="sucesso-msg">Período de ${formatarDataBR(ini)} até ${formatarDataBR(fim)}: <strong>${lista.length}</strong> produto(s) encontrados, totalizando <strong>${totalQtd}</strong> unidades.</div>`;
 
   if(lista.length === 0){
-    corpo.innerHTML = `<tr><td colspan="6"><div class="vazio"><div class="icone-vazio">🗓️</div>Nenhum produto vence nesse período.</div></td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="7"><div class="vazio"><div class="icone-vazio">🗓️</div>Nenhum produto vence nesse período.</div></td></tr>`;
   } else {
     corpo.innerHTML = lista.map(linhaTabela).join('');
   }
@@ -469,4 +479,27 @@ function fecharScanner(){
     }
   }catch(e){ /* ignora */ }
   document.getElementById('modal-scanner').classList.add('oculto');
+}
+
+/* =========================================================
+   USUÁRIOS (ADMIN)
+   ========================================================= */
+function renderizarUsuarios(){
+  const corpo = document.getElementById('tbody-usuarios');
+  if(usuarios.length === 0){
+    corpo.innerHTML = `<tr><td colspan="3"><div class="vazio">Nenhum usuário encontrado.</div></td></tr>`;
+    return;
+  }
+  const lista = [...usuarios].sort((a,b) => (a.usuario||'').localeCompare(b.usuario||''));
+  corpo.innerHTML = lista.map(u => {
+    const criado = u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—';
+    const seloTipo = u.tipo === 'admin'
+      ? `<span class="selo selo-laranja">Administrador</span>`
+      : `<span class="selo selo-verde">Usuário</span>`;
+    return `<tr>
+      <td><strong>${escapeHtml(u.usuario)}</strong></td>
+      <td>${seloTipo}</td>
+      <td>${criado}</td>
+    </tr>`;
+  }).join('');
 }
