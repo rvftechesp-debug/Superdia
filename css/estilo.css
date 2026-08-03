@@ -188,10 +188,10 @@ body{
 }
 .scanner-mira{
   position:absolute;
-  left:10%;
-  right:10%;
-  top:42%;
-  height:16%;
+  left:8%;
+  right:8%;
+  top:30%;
+  height:40%;
   border:2px solid var(--amarelo);
   border-radius:6px;
   box-shadow:0 0 0 999px rgba(0,0,0,0.35);
