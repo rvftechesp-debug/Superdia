@@ -743,28 +743,26 @@ async function preencherNomeProdutoPorCodigo(codigo) {
   mostrarMensagemCadastro("Buscando nome do produto pelo código de barras...", "info");
 
   try {
-    const resposta = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json`);
+    const resposta = await fetch(`/api/produto?codigo=${encodeURIComponent(codigo)}`);
     const dados = await resposta.json();
 
-    if (dados && dados.status === 1 && dados.product) {
-      const nomeProduto = dados.product.product_name_pt || dados.product.product_name || dados.product.generic_name_pt || dados.product.generic_name;
-      const marca = dados.product.brands ? dados.product.brands.split(",")[0].trim() : "";
-      const quantidadeEmbalagem = (dados.product.quantity || "").trim();
+    if (dados && dados.encontrado && dados.nome) {
+      let nomeFinal = dados.nome.trim();
+      const marca = (dados.marca || "").trim();
+      const quantidade = (dados.quantidade || "").trim();
 
-      if (nomeProduto) {
-        let nomeFinal = nomeProduto.trim();
-        if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
-          nomeFinal = `${marca} ${nomeFinal}`;
-        }
-        // junta o peso/volume no final do nome, se a base tiver essa info
-        // e ela ainda não estiver mencionada no próprio nome
-        if (quantidadeEmbalagem && !nomeFinal.toLowerCase().includes(quantidadeEmbalagem.toLowerCase())) {
-          nomeFinal = `${nomeFinal} ${quantidadeEmbalagem}`;
-        }
-        campoNome.value = nomeFinal;
-        mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
-        return;
+      if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
+        nomeFinal = `${marca} ${nomeFinal}`;
       }
+      // junta o peso/volume no final do nome, se vier disponível
+      // e ele ainda não estiver mencionado no próprio nome
+      if (quantidade && !nomeFinal.toLowerCase().includes(quantidade.toLowerCase())) {
+        nomeFinal = `${nomeFinal} ${quantidade}`;
+      }
+
+      campoNome.value = nomeFinal;
+      mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
+      return;
     }
     mostrarMensagemCadastro("Código lido, mas não encontramos o nome desse produto na base pública. Preencha manualmente.", "erro");
   } catch (e) {
