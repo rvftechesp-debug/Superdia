@@ -303,12 +303,19 @@ function atualizarDashboard() {
   tbody.innerHTML = proximos.map(renderLinhaProduto).join("");
 }
 
+function nomeComPesoHtml(p) {
+  const nome = escapeHtml(p.nome || "");
+  const peso = (p.peso || "").trim();
+  if (!peso) return nome;
+  return `${nome}<div class="meta-peso">${escapeHtml(peso)}</div>`;
+}
+
 function renderLinhaProduto(p) {
   const status = statusProduto(p.validade);
 
   return `
     <tr>
-      <td>${escapeHtml(p.nome || "")}</td>
+      <td>${nomeComPesoHtml(p)}</td>
       <td>${escapeHtml(p.lote || "")}</td>
       <td>${escapeHtml(p.codigo || "")}</td>
       <td>${escapeHtml(String(p.quantidade ?? ""))}</td>
@@ -340,7 +347,7 @@ function renderizarBusca() {
 
     return `
       <tr>
-        <td>${escapeHtml(p.nome || "")}</td>
+        <td>${nomeComPesoHtml(p)}</td>
         <td>${escapeHtml(p.lote || "")}</td>
         <td>${escapeHtml(p.codigo || "")}</td>
         <td>${escapeHtml(String(p.quantidade ?? ""))}</td>
@@ -742,11 +749,17 @@ async function preencherNomeProdutoPorCodigo(codigo) {
     if (dados && dados.status === 1 && dados.product) {
       const nomeProduto = dados.product.product_name_pt || dados.product.product_name || dados.product.generic_name_pt || dados.product.generic_name;
       const marca = dados.product.brands ? dados.product.brands.split(",")[0].trim() : "";
+      const quantidadeEmbalagem = (dados.product.quantity || "").trim();
 
       if (nomeProduto) {
         let nomeFinal = nomeProduto.trim();
         if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
           nomeFinal = `${marca} ${nomeFinal}`;
+        }
+        // junta o peso/volume no final do nome, se a base tiver essa info
+        // e ela ainda não estiver mencionada no próprio nome
+        if (quantidadeEmbalagem && !nomeFinal.toLowerCase().includes(quantidadeEmbalagem.toLowerCase())) {
+          nomeFinal = `${nomeFinal} ${quantidadeEmbalagem}`;
         }
         campoNome.value = nomeFinal;
         mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
