@@ -10,8 +10,7 @@ let tipoLogado = null;
 let usuarioSenhaEditandoId = null;
 let usuarioSenhaEditandoNome = "";
 
-let scannerAtivo = false;
-let scannerHandler = null;
+let leitorCodigoBarras = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") {
@@ -658,150 +657,64 @@ function fecharModal() {
 async function abrirScanner() {
   const modal = document.getElementById("modal-scanner");
   const statusEl = document.getElementById("scanner-status");
-  const videoWrap = document.getElementById("scanner-video-wrap");
+  const videoEl = document.getElementById("scanner-video");
 
-  if (!modal || !statusEl || !videoWrap) return;
+  if (!modal || !statusEl || !videoEl) return;
 
   modal.classList.remove("oculto");
   statusEl.textContent = "Iniciando câmera...";
   statusEl.className = "scanner-status";
 
-  if (!window.Quagga) {
-    statusEl.textContent = "Biblioteca Quagga não carregada.";
+  if (typeof ZXing === "undefined") {
+    statusEl.textContent = "Não foi possível carregar o leitor. Verifique sua internet.";
     statusEl.className = "scanner-status erro";
     return;
   }
 
-  if (scannerAtivo) {
-    fecharScanner();
-  }
-
   try {
-    Quagga.init(
-  {
-    inputStream: {
-      name: "Live",
-      type: "LiveStream",
-      target: videoWrap,
-      constraints: {
-        facingMode: { ideal: "environment" },
-        width: { min: 640, ideal: 1280 },
-        height: { min: 480, ideal: 720 }
-      },
-      area: {
-        top: "30%",
-        bottom: "30%",
-        left: "8%",
-        right: "8%"
+    leitorCodigoBarras = new ZXing.BrowserMultiFormatReader();
+
+    const dispositivos = await leitorCodigoBarras.listVideoInputDevices();
+    const traseira = dispositivos.find(d => /back|traseira|rear|environment/i.test(d.label));
+    const idCamera = traseira ? traseira.deviceId : (dispositivos[0] ? dispositivos[0].deviceId : undefined);
+
+    statusEl.textContent = "Aponte para o código de barras...";
+
+    leitorCodigoBarras.decodeFromVideoDevice(idCamera, videoEl, (resultado, erro) => {
+      if (resultado) {
+        const codigoLido = resultado.getText();
+        const input = document.getElementById("p-codigo");
+        if (input) input.value = codigoLido;
+
+        statusEl.textContent = "Código lido: " + codigoLido;
+        statusEl.className = "scanner-status sucesso";
+
+        if (navigator.vibrate) navigator.vibrate(120);
+
+        setTimeout(fecharScanner, 700);
       }
-    },
-    locator: {
-      patchSize: "medium",
-      halfSample: true
-    },
-    numOfWorkers: 0,
-    frequency: 10,
-    decoder: {
-      readers: [
-        "ean_reader",
-        "ean_8_reader",
-        "code_128_reader",
-        "upc_reader",
-        "upc_e_reader"
-      ],
-      multiple: false
-    },
-    locate: true
-  },
-  async function (err) {
-         if (err) {
-          console.error(err);
-          statusEl.textContent = "Não foi possível acessar a câmera.";
-          statusEl.className = "scanner-status erro";
-          return;
-        }
-
-        scannerAtivo = true;
-        Quagga.start();
-        statusEl.textContent = "Aponte para o código de barras...";
-        statusEl.className = "scanner-status";
-
-        setTimeout(async () => {
-          try {
-            const video = videoWrap.querySelector("video");
-            if (!video || !video.srcObject) return;
-
-            const track = video.srcObject.getVideoTracks()[0];
-            const support = navigator.mediaDevices?.getSupportedConstraints?.() || {};
-            const caps = track.getCapabilities ? track.getCapabilities() : {};
-            const settings = track.getSettings ? track.getSettings() : {};
-
-            if (!support.zoom || !caps.zoom) {
-              console.log("Zoom não suportado neste navegador/aparelho.");
-              return;
-            }
-
-            const atual = settings.zoom ?? caps.zoom.min ?? 1;
-            const novoZoom = Math.max(caps.zoom.min ?? 1, atual / 2);
-
-            await track.applyConstraints({
-              advanced: [{ zoom: novoZoom }]
-            });
-
-            console.log("Zoom ajustado para:", novoZoom);
-          } catch (e) {
-            console.log("Não foi possível aplicar zoom:", e);
-          }
-        }, 800);
-      }
-    );
-
-    if (scannerHandler) {
-      Quagga.offDetected(scannerHandler);
-      scannerHandler = null;
-    }
-
-    scannerHandler = function (result) {
-      if (!result || !result.codeResult || !result.codeResult.code) return;
-
-      const codigoLido = result.codeResult.code;
-      const input = document.getElementById("p-codigo");
-      if (input) input.value = codigoLido;
-
-      statusEl.textContent = "Código lido: " + codigoLido;
-      statusEl.className = "scanner-status sucesso";
-
-      if (navigator.vibrate) navigator.vibrate(120);
-
-      setTimeout(() => {
-        fecharScanner();
-      }, 700);
-    };
-
-    Quagga.onDetected(scannerHandler);
+    });
   } catch (e) {
     console.error(e);
-    statusEl.textContent = "Não foi possível iniciar o scanner.";
+    let motivo = "Verifique as permissões do navegador.";
+    if (e && e.name === "NotAllowedError") motivo = "Permissão de câmera negada. Libere o acesso à câmera para este site.";
+    else if (e && e.name === "NotFoundError") motivo = "Nenhuma câmera foi encontrada neste dispositivo.";
+    else if (e && e.name === "NotReadableError") motivo = "A câmera já está sendo usada por outro aplicativo.";
+    else if (e && e.message) motivo = e.message;
+    statusEl.textContent = "Não foi possível acessar a câmera. " + motivo;
     statusEl.className = "scanner-status erro";
   }
 }
 
-
 function fecharScanner() {
   try {
-    if (scannerHandler && window.Quagga) {
-      Quagga.offDetected(scannerHandler);
-      scannerHandler = null;
-    }
-
-    if (scannerAtivo && window.Quagga) {
-      Quagga.stop();
+    if (leitorCodigoBarras) {
+      leitorCodigoBarras.reset();
+      leitorCodigoBarras = null;
     }
   } catch (e) {
     console.error("Erro ao fechar scanner:", e);
   }
-
-  scannerAtivo = false;
   document.getElementById("modal-scanner")?.classList.add("oculto");
 }
 
