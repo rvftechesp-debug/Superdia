@@ -15,6 +15,7 @@ export default async function handler(req, res) {
   }
 
   const token = process.env.COSMOS_TOKEN;
+  const diagnostico = { tokenConfigurado: !!token, cosmosStatus: null, cosmosErro: null };
 
   // 1) Tenta a Cosmos (Bluesoft) primeiro — cobre a maior parte dos produtos do Brasil
   if (token) {
@@ -29,6 +30,8 @@ export default async function handler(req, res) {
         }
       );
 
+      diagnostico.cosmosStatus = respostaCosmos.status;
+
       if (respostaCosmos.ok) {
         const dados = await respostaCosmos.json();
         const nome = dados.description || dados.name || "";
@@ -42,9 +45,12 @@ export default async function handler(req, res) {
           });
           return;
         }
+      } else {
+        diagnostico.cosmosErro = await respostaCosmos.text();
       }
     } catch (erro) {
       console.error("Erro ao consultar Cosmos:", erro);
+      diagnostico.cosmosErro = String(erro);
     }
   }
 
@@ -72,6 +78,7 @@ export default async function handler(req, res) {
           nome: nomeOff,
           marca: marcaOff,
           quantidade: quantidadeOff,
+          diagnostico,
         });
         return;
       }
@@ -80,5 +87,5 @@ export default async function handler(req, res) {
     console.error("Erro ao consultar Open Food Facts:", erro);
   }
 
-  res.status(200).json({ encontrado: false });
+  res.status(200).json({ encontrado: false, diagnostico });
 }
