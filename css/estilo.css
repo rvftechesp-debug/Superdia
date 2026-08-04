@@ -266,6 +266,17 @@ body{
   margin-bottom:16px;
 }
 
+.msg{
+  padding:10px 12px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:16px;
+}
+.msg.info{background:#E3EEFC; color:#1D5FC2;}
+.msg.sucesso{background:var(--verde-bg); color:var(--verde);}
+.msg.erro{background:var(--alerta-bg); color:var(--alerta);}
+
 /* ===== APP ===== */
 #app{min-height:100vh;}
 header.topo{

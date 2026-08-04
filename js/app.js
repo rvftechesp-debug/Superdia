@@ -695,6 +695,8 @@ async function abrirScanner(campoDestino) {
 
         if (scannerCampoDestino === "campo-busca") {
           renderizarBusca();
+        } else if (scannerCampoDestino === "p-codigo") {
+          preencherNomeProdutoPorCodigo(codigoLido);
         }
 
         setTimeout(fecharScanner, 700);
@@ -722,6 +724,40 @@ function fecharScanner() {
     console.error("Erro ao fechar scanner:", e);
   }
   document.getElementById("modal-scanner")?.classList.add("oculto");
+}
+
+/* =========================================================
+   BUSCA AUTOMÁTICA DO NOME DO PRODUTO (Open Food Facts)
+   ========================================================= */
+async function preencherNomeProdutoPorCodigo(codigo) {
+  const campoNome = document.getElementById("p-nome");
+  if (!campoNome) return;
+
+  mostrarMensagemCadastro("Buscando nome do produto pelo código de barras...", "info");
+
+  try {
+    const resposta = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json`);
+    const dados = await resposta.json();
+
+    if (dados && dados.status === 1 && dados.product) {
+      const nomeProduto = dados.product.product_name_pt || dados.product.product_name || dados.product.generic_name_pt || dados.product.generic_name;
+      const marca = dados.product.brands ? dados.product.brands.split(",")[0].trim() : "";
+
+      if (nomeProduto) {
+        let nomeFinal = nomeProduto.trim();
+        if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
+          nomeFinal = `${marca} ${nomeFinal}`;
+        }
+        campoNome.value = nomeFinal;
+        mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
+        return;
+      }
+    }
+    mostrarMensagemCadastro("Código lido, mas não encontramos o nome desse produto na base pública. Preencha manualmente.", "erro");
+  } catch (e) {
+    console.error("Erro ao buscar nome do produto:", e);
+    mostrarMensagemCadastro("Código lido, mas não foi possível consultar o nome do produto agora. Preencha manualmente.", "erro");
+  }
 }
 
 
