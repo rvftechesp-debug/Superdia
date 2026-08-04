@@ -1,311 +1,402 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Super Dia Express — Controle de Validade</title>
-<link rel="stylesheet" href="css/estilo.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Dia Express — Controle de Validade</title>
+  <link rel="stylesheet" href="css/estilo.css" />
 </head>
 <body>
 
-<!-- ========== TELA DE LOGIN ========== -->
-<div id="tela-login">
-  <div class="card-login">
-    <div class="logo-badge">
-      <div class="logo-texto">
-        <div class="linha1">SUPER DIA</div>
-        <div class="linha2">EXPRESS</div>
-      </div>
-    </div>
-    <div class="subtitulo">Controle de Validade</div>
-
-    <div class="abas-login">
-      <button id="aba-entrar" class="ativa" onclick="mudarAbaLogin('entrar')">Entrar</button>
-      <button id="aba-criar" onclick="mudarAbaLogin('criar')">Criar conta</button>
-    </div>
-
-    <div id="msg-login"></div>
-
-    <!-- Formulário Entrar -->
-    <form id="form-entrar" onsubmit="return fazerLogin(event)">
-      <div class="campo">
-        <label>Usuário</label>
-        <input type="text" id="login-usuario" autocomplete="username" required>
-      </div>
-      <div class="campo">
-        <label>Senha</label>
-        <input type="password" id="login-senha" autocomplete="current-password" required>
-      </div>
-      <button class="btn btn-primario" type="submit">Entrar no sistema</button>
-    </form>
-
-    <!-- Formulário Criar Conta -->
-    <form id="form-criar" class="oculto" onsubmit="return criarConta(event)">
-      <div class="campo">
-        <label>Nome de usuário</label>
-        <input type="text" id="criar-usuario" required>
-      </div>
-      <div class="campo">
-        <label>Senha</label>
-        <input type="password" id="criar-senha" required>
-      </div>
-      <div class="campo">
-        <label>Confirmar senha</label>
-        <input type="password" id="criar-senha2" required>
-      </div>
-      <button class="btn btn-primario" type="submit">Criar minha conta</button>
-    </form>
-  </div>
-</div>
-
-<!-- ========== APP PRINCIPAL ========== -->
-<div id="app" class="oculto">
-  <header class="topo">
-    <div class="topo-esquerda">
+  <!-- TELA DE LOGIN -->
+  <div id="tela-login">
+    <div class="card-login">
       <div class="logo-badge">
         <div class="logo-texto">
           <div class="linha1">SUPER DIA</div>
           <div class="linha2">EXPRESS</div>
         </div>
       </div>
-      <div class="topo-titulo">
-        <h1>CONTROLE DE VALIDADE</h1>
-        <p>Gestão de estoque e prazos de vencimento</p>
+
+      <div class="subtitulo">Controle de Validade</div>
+
+      <div class="abas-login">
+        <button id="aba-entrar" class="ativa" onclick="mudarAbaLogin('entrar')">Entrar</button>
+        <button id="aba-criar" onclick="mudarAbaLogin('criar')">Criar conta</button>
       </div>
-    </div>
-    <div class="topo-direita">
-      <div class="usuario-chip"><span class="bolinha"></span><span id="nome-usuario-logado"></span></div>
-      <button class="btn-sair" onclick="fazerLogout()">Sair</button>
-    </div>
-  </header>
 
-  <nav class="abas">
-    <button id="tab-btn-painel" class="ativa" onclick="mudarAba('painel')">🏠 Painel</button>
-    <button id="tab-btn-cadastro" onclick="mudarAba('cadastro')">➕ Cadastrar</button>
-    <button id="tab-btn-busca" onclick="mudarAba('busca')">🔍 Buscar produtos</button>
-    <button id="tab-btn-relatorio" onclick="mudarAba('relatorio')">📋 Relatório</button>
-    <button id="tab-btn-usuarios" class="oculto" onclick="mudarAba('usuarios')">👤 Usuários</button>
-    <button id="tab-btn-logs" class="oculto" onclick="mudarAba('logs')">🕓 Logs</button>
-  </nav>
+      <div id="msg-login"></div>
 
-  <main>
-
-    <!-- ===== PAINEL / DASHBOARD ===== -->
-    <section id="tab-painel">
-      <div class="secao-titulo">Painel geral</div>
-      <div class="secao-sub">Resumo do estoque e produtos próximos do vencimento</div>
-
-      <div class="grade-stats">
-        <div class="stat-card cor-total">
-          <div class="num" id="stat-total">0</div>
-          <div class="rotulo">Produtos cadastrados</div>
+      <form id="form-entrar" onsubmit="return fazerLogin(event)">
+        <div class="campo">
+          <label for="login-usuario">Usuário</label>
+          <input type="text" id="login-usuario" autocomplete="username" required />
         </div>
-        <div class="stat-card cor-verde">
-          <div class="num" id="stat-ok">0</div>
-          <div class="rotulo">Dentro da validade</div>
+
+        <div class="campo">
+          <label for="login-senha">Senha</label>
+          <input type="password" id="login-senha" autocomplete="current-password" required />
         </div>
-        <div class="stat-card cor-laranja">
-          <div class="num" id="stat-semana">0</div>
-          <div class="rotulo">Vencem em 7 dias</div>
+
+        <button class="btn btn-primario" type="submit">Entrar no sistema</button>
+      </form>
+
+      <form id="form-criar" class="oculto" onsubmit="return criarConta(event)">
+        <div class="campo">
+          <label for="criar-usuario">Nome de usuário</label>
+          <input type="text" id="criar-usuario" required />
         </div>
-        <div class="stat-card cor-alerta">
-          <div class="num" id="stat-vencidos">0</div>
-          <div class="rotulo">Já vencidos</div>
+
+        <div class="campo">
+          <label for="criar-senha">Senha</label>
+          <input type="password" id="criar-senha" required />
         </div>
-      </div>
 
-      <div class="painel">
-        <h3>⚠️ Produtos vencendo nesta semana</h3>
-        <div class="tabela-wrap">
-          <table>
-            <thead><tr>
-              <th>Produto</th><th>Lote</th><th>Cód. barras</th><th>Quantidade</th><th>Vencimento</th><th>Status</th><th>Cadastrado por</th>
-            </tr></thead>
-            <tbody id="tbody-painel-semana"></tbody>
-          </table>
+        <div class="campo">
+          <label for="criar-senha2">Confirmar senha</label>
+          <input type="password" id="criar-senha2" required />
         </div>
-      </div>
-    </section>
 
-    <!-- ===== CADASTRO ===== -->
-    <section id="tab-cadastro" class="oculto">
-      <div class="secao-titulo" id="titulo-cadastro">Cadastrar produto</div>
-      <div class="secao-sub">Preencha os dados do produto recebido no mercadinho</div>
-
-      <div class="painel">
-        <div id="msg-cadastro"></div>
-        <form id="form-produto" onsubmit="return salvarProduto(event)">
-          <input type="hidden" id="produto-id">
-          <div class="grade-form">
-            <div class="campo campo-full">
-              <label>Nome do produto</label>
-              <input type="text" id="p-nome" placeholder="Ex: Arroz Tio João 5kg" required>
-            </div>
-            <div class="campo">
-              <label>Data de validade</label>
-              <input type="date" id="p-validade" required>
-            </div>
-            <div class="campo">
-              <label>Lote</label>
-              <input type="text" id="p-lote" placeholder="Ex: L2026A" required>
-            </div>
-            <div class="campo">
-              <label>Quantidade</label>
-              <input type="number" id="p-quantidade" min="0" placeholder="Ex: 24" required>
-            </div>
-            <div class="campo">
-              <label>Código de barras</label>
-              <div class="campo-com-icone">
-                <input type="text" id="p-codigo" placeholder="Ex: 7891234567890" required>
-                <button type="button" class="btn-camera" onclick="abrirScanner()" title="Ler código de barras com a câmera">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                    <circle cx="12" cy="13" r="4"></circle>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex; gap:10px; margin-top:6px;">
-            <button class="btn btn-primario" style="width:auto; padding-left:26px; padding-right:26px;" type="submit" id="btn-salvar-produto">Cadastrar produto</button>
-            <button type="button" class="btn btn-secundario oculto" id="btn-cancelar-edicao" onclick="cancelarEdicao()">Cancelar edição</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- ===== BUSCA ===== -->
-    <section id="tab-busca" class="oculto">
-      <div class="secao-titulo">Buscar produtos</div>
-      <div class="secao-sub">Todos os produtos cadastrados — filtre por nome ou código de barras</div>
-
-      <div class="barra-busca">
-        <input type="text" id="campo-busca" placeholder="Digite o nome do produto ou o código de barras..." oninput="renderizarBusca()">
-      </div>
-
-      <div class="tabela-wrap">
-        <table>
-          <thead><tr>
-            <th>Produto</th><th>Lote</th><th>Cód. barras</th><th>Quantidade</th><th>Vencimento</th><th>Status</th><th>Cadastrado por</th><th>Ações</th>
-          </tr></thead>
-          <tbody id="tbody-busca"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== RELATÓRIO ===== -->
-    <section id="tab-relatorio" class="oculto">
-      <div class="secao-titulo">Relatório de vencimentos</div>
-      <div class="secao-sub">Escolha um período para ver quais produtos vencem nessa faixa de datas</div>
-
-      <div class="painel">
-        <div class="atalhos-data">
-          <div class="chip-atalho" onclick="atalhoData(7)">Próximos 7 dias</div>
-          <div class="chip-atalho" onclick="atalhoData(15)">Próximos 15 dias</div>
-          <div class="chip-atalho" onclick="atalhoData(30)">Próximos 30 dias</div>
-          <div class="chip-atalho" onclick="atalhoData(90)">Próximos 90 dias</div>
-        </div>
-        <div class="linha-datas">
-          <div class="campo">
-            <label>Data inicial</label>
-            <input type="date" id="rel-data-ini">
-          </div>
-          <div class="campo">
-            <label>Data final</label>
-            <input type="date" id="rel-data-fim">
-          </div>
-          <button class="btn btn-amarelo" onclick="gerarRelatorio()">Gerar relatório</button>
-        </div>
-        <div id="resumo-relatorio"></div>
-      </div>
-
-      <div class="tabela-wrap">
-        <table>
-          <thead><tr>
-            <th>Produto</th><th>Lote</th><th>Cód. barras</th><th>Quantidade</th><th>Vencimento</th><th>Status</th><th>Cadastrado por</th>
-          </tr></thead>
-          <tbody id="tbody-relatorio"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== USUÁRIOS (ADMIN) ===== -->
-    <section id="tab-usuarios" class="oculto">
-      <div class="secao-titulo">Usuários do sistema</div>
-      <div class="secao-sub">Todas as contas cadastradas no Super Dia Express</div>
-
-      <div class="tabela-wrap">
-        <table>
-          <thead><tr>
-            <th>Usuário</th><th>Perfil</th><th>Criado em</th>
-          </tr></thead>
-          <tbody id="tbody-usuarios"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== LOGS (ADMIN) ===== -->
-    <section id="tab-logs" class="oculto">
-      <div class="secao-titulo">Logs de atividade</div>
-      <div class="secao-sub">Histórico de cadastros, edições e exclusões de produtos, e criação de contas</div>
-
-      <div class="tabela-wrap">
-        <table>
-          <thead><tr>
-            <th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th>
-          </tr></thead>
-          <tbody id="tbody-logs"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <p class="rodape-nota">Super Dia Express · Sistema interno de controle de validade</p>
-  </main>
-</div>
-
-<!-- ===== MODAL DE ALERTA ===== -->
-<div id="modal-alerta" class="modal-fundo oculto">
-  <div class="modal-caixa">
-    <div class="modal-topo">
-      <div class="icone">⏰</div>
-      <div>
-        <h3>Atenção ao estoque</h3>
-        <p id="modal-subtitulo">Produtos vencendo nesta semana</p>
-      </div>
-    </div>
-    <div class="modal-corpo" id="modal-lista"></div>
-    <div class="modal-rodape">
-      <button class="btn btn-primario" onclick="fecharModal()">Entendi, fechar</button>
+        <button class="btn btn-primario" type="submit">Criar minha conta</button>
+      </form>
     </div>
   </div>
+
+  <!-- APP PRINCIPAL -->
+  <div id="app" class="oculto">
+    <header class="topo">
+      <div class="topo-esquerda">
+        <div class="logo-badge">
+          <div class="logo-texto">
+            <div class="linha1">SUPER DIA</div>
+            <div class="linha2">EXPRESS</div>
+          </div>
+        </div>
+
+        <div class="topo-titulo">
+          <h1>CONTROLE DE VALIDADE</h1>
+          <p>Gestão de estoque e prazos de vencimento</p>
+        </div>
+      </div>
+
+      <div class="topo-direita">
+        <div class="usuario-chip">
+          <span class="bolinha"></span>
+          <span id="nome-usuario-logado"></span>
+        </div>
+        <button class="btn-sair" onclick="fazerLogout()">Sair</button>
+      </div>
+    </header>
+
+    <nav class="abas">
+      <button id="tab-btn-painel" class="ativa" onclick="mudarAba('painel')">🏠 Painel</button>
+      <button id="tab-btn-cadastro" onclick="mudarAba('cadastro')">➕ Cadastrar</button>
+      <button id="tab-btn-busca" onclick="mudarAba('busca')">🔍 Buscar produtos</button>
+      <button id="tab-btn-relatorio" onclick="mudarAba('relatorio')">📋 Relatório</button>
+      <button id="tab-btn-usuarios" class="oculto" onclick="mudarAba('usuarios')">👤 Usuários</button>
+      <button id="tab-btn-logs" class="oculto" onclick="mudarAba('logs')">🕓 Logs</button>
+    </nav>
+
+    <main>
+      <section id="tab-painel">
+        <div class="secao-titulo">Painel geral</div>
+        <div class="secao-sub">Resumo do estoque e produtos próximos do vencimento</div>
+
+        <div class="grade-stats">
+          <div class="stat-card cor-total">
+            <div class="num" id="stat-total">0</div>
+            <div class="rotulo">Produtos cadastrados</div>
+          </div>
+
+          <div class="stat-card cor-verde">
+            <div class="num" id="stat-ok">0</div>
+            <div class="rotulo">Dentro da validade</div>
+          </div>
+
+          <div class="stat-card cor-laranja">
+            <div class="num" id="stat-semana">0</div>
+            <div class="rotulo">Vencem em 7 dias</div>
+          </div>
+
+          <div class="stat-card cor-alerta">
+            <div class="num" id="stat-vencidos">0</div>
+            <div class="rotulo">Já vencidos</div>
+          </div>
+        </div>
+
+        <div class="painel">
+          <h3>⚠️ Produtos vencendo nesta semana</h3>
+          <div class="tabela-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Lote</th>
+                  <th>Cód. barras</th>
+                  <th>Quantidade</th>
+                  <th>Vencimento</th>
+                  <th>Status</th>
+                  <th>Cadastrado por</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-painel-semana"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-cadastro" class="oculto">
+        <div class="secao-titulo" id="titulo-cadastro">Cadastrar produto</div>
+        <div class="secao-sub">Preencha os dados do produto recebido no mercadinho</div>
+
+        <div class="painel">
+          <div id="msg-cadastro"></div>
+
+          <form id="form-produto" onsubmit="return salvarProduto(event)">
+            <input type="hidden" id="produto-id" />
+
+            <div class="grade-form">
+              <div class="campo campo-full">
+                <label for="p-nome">Nome do produto</label>
+                <input type="text" id="p-nome" placeholder="Ex: Arroz Tio João 5kg" required />
+              </div>
+
+              <div class="campo">
+                <label for="p-validade">Data de validade</label>
+                <input type="date" id="p-validade" required />
+              </div>
+
+              <div class="campo">
+                <label for="p-lote">Lote</label>
+                <input type="text" id="p-lote" placeholder="Ex: L2026A" required />
+              </div>
+
+              <div class="campo">
+                <label for="p-quantidade">Quantidade</label>
+                <input type="number" id="p-quantidade" min="0" placeholder="Ex: 24" required />
+              </div>
+
+              <div class="campo">
+                <label for="p-codigo">Código de barras</label>
+                <div class="campo-com-icone">
+                  <input type="text" id="p-codigo" placeholder="Ex: 7891234567890" required />
+                  <button type="button" class="btn-camera" onclick="abrirScanner()" title="Ler código de barras com a câmera">📷</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:6px;">
+              <button class="btn btn-primario" style="width:auto; padding-left:26px; padding-right:26px;" type="submit" id="btn-salvar-produto">
+                Cadastrar produto
+              </button>
+              <button type="button" class="btn btn-secundario oculto" id="btn-cancelar-edicao" onclick="cancelarEdicao()">
+                Cancelar edição
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="tab-busca" class="oculto">
+        <div class="secao-titulo">Buscar produtos</div>
+        <div class="secao-sub">Todos os produtos cadastrados — filtre por nome ou código de barras</div>
+
+        <div class="barra-busca">
+          <input
+            type="text"
+            id="campo-busca"
+            placeholder="Digite o nome do produto ou o código de barras..."
+            oninput="renderizarBusca()"
+          />
+        </div>
+
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Lote</th>
+                <th>Cód. barras</th>
+                <th>Quantidade</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th>Cadastrado por</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-busca"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-relatorio" class="oculto">
+        <div class="secao-titulo">Relatório de vencimentos</div>
+        <div class="secao-sub">Escolha um período para ver quais produtos vencem nessa faixa de datas</div>
+
+        <div class="painel">
+          <div class="atalhos-data">
+            <div class="chip-atalho" onclick="atalhoData(7)">Próximos 7 dias</div>
+            <div class="chip-atalho" onclick="atalhoData(15)">Próximos 15 dias</div>
+            <div class="chip-atalho" onclick="atalhoData(30)">Próximos 30 dias</div>
+            <div class="chip-atalho" onclick="atalhoData(90)">Próximos 90 dias</div>
+          </div>
+
+          <div class="linha-datas">
+            <div class="campo">
+              <label for="rel-data-ini">Data inicial</label>
+              <input type="date" id="rel-data-ini" />
+            </div>
+
+            <div class="campo">
+              <label for="rel-data-fim">Data final</label>
+              <input type="date" id="rel-data-fim" />
+            </div>
+
+            <button class="btn btn-amarelo" onclick="gerarRelatorio()">Gerar relatório</button>
+          </div>
+
+          <div id="resumo-relatorio"></div>
+        </div>
+
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Lote</th>
+                <th>Cód. barras</th>
+                <th>Quantidade</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th>Cadastrado por</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-relatorio"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-usuarios" class="oculto">
+        <div class="secao-titulo">Usuários do sistema</div>
+        <div class="secao-sub">Todas as contas cadastradas no Super Dia Express</div>
+
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+  <tr>
+    <th>Usuário</th>
+    <th>Perfil</th>
+    <th>Criado em</th>
+    <th>Ações</th>
+  </tr>
+</thead>
+            <tbody id="tbody-usuarios"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-logs" class="oculto">
+        <div class="secao-titulo">Logs de atividade</div>
+        <div class="secao-sub">Histórico de cadastros, edições e exclusões de produtos, e criação de contas</div>
+
+        <div class="painel">
+          <div class="linha-datas">
+            <div class="campo">
+              <label for="filtro-log-usuario">Usuário</label>
+              <select id="filtro-log-usuario" onchange="filtrarLogs()">
+                <option value="">Todos os usuários</option>
+              </select>
+            </div>
+
+            <div class="campo">
+              <label for="filtro-log-data">Data</label>
+              <input type="date" id="filtro-log-data" onchange="filtrarLogs()" />
+            </div>
+
+            <button class="btn btn-secundario" type="button" onclick="limparFiltrosLogs()">Limpar filtros</button>
+          </div>
+        </div>
+
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/hora</th>
+                <th>Usuário</th>
+                <th>Ação</th>
+                <th>Detalhes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-logs"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="rodape-nota">Super Dia Express · Sistema interno de controle de validade</p>
+    </main>
+  </div>
+
+  <!-- MODAL DE ALERTA -->
+  <div id="modal-alerta" class="modal-fundo oculto">
+    <div class="modal-caixa">
+      <div class="modal-topo">
+        <div class="icone">⚠️</div>
+        <div>
+          <h3>Produtos próximos do vencimento</h3>
+          <p id="modal-subtitulo"></p>
+        </div>
+      </div>
+
+      <div class="modal-corpo" id="modal-lista"></div>
+
+      <div class="modal-rodape">
+        <button class="btn btn-primario" onclick="fecharModal()">Entendi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DO SCANNER -->
+  <div id="modal-scanner" class="modal-fundo oculto">
+    <div class="modal-caixa modal-scanner-caixa">
+      <div class="modal-topo">
+        <div class="icone">📷</div>
+        <div>
+          <h3>Ler código de barras</h3>
+          <p>Aponte a câmera para o código do produto</p>
+        </div>
+      </div>
+
+      <div class="modal-corpo modal-corpo-scanner">
+        <div id="scanner-video-wrap">
+  <div class="scanner-mira"></div>
 </div>
 
-<!-- ===== MODAL SCANNER DE CÓDIGO DE BARRAS ===== -->
-<div id="modal-scanner" class="modal-fundo oculto">
-  <div class="modal-caixa modal-scanner-caixa">
-    <div class="modal-topo">
-      <div class="icone">📷</div>
-      <div>
-        <h3>Ler código de barras</h3>
-        <p>Aponte a câmera para o código do produto</p>
+        <div id="scanner-status" class="scanner-status">Aguardando câmera...</div>
+
+        <button class="btn btn-secundario" type="button" onclick="fecharScanner()">Fechar câmera</button>
       </div>
     </div>
-    <div class="modal-corpo modal-corpo-scanner">
-      <div id="scanner-video-wrap">
-        <video id="scanner-video"></video>
-        <div class="scanner-mira"></div>
+  </div>
+  
+<div id="modal-senha" class="oculto">
+  <div class="modal-conteudo">
+    <h3>Alterar senha</h3>
+    <p>Usuário: <strong id="senha-usuario-nome"></strong></p>
+
+    <form onsubmit="return salvarNovaSenha(event)">
+      <input type="password" id="nova-senha" placeholder="Nova senha" required>
+
+      <div class="modal-acoes">
+        <button type="submit" class="btn btn-verde">Salvar</button>
+        <button type="button" class="btn btn-secundario" onclick="fecharModalSenha()">Cancelar</button>
       </div>
-      <p id="scanner-status" class="scanner-status">Iniciando câmera...</p>
-    </div>
-    <div class="modal-rodape">
-      <button class="btn btn-secundario" style="width:100%;" onclick="fecharScanner()">Cancelar</button>
-    </div>
+    </form>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/app.js"></script>
+<script src="./js/config.js"></script>
+<script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+<script src="./js/app.js"></script>
 </body>
 </html>

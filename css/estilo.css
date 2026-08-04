@@ -148,7 +148,7 @@ body{
 }
 .campo input:focus, .campo select:focus{border-color:var(--vermelho);}
 
-/* campo com botão de câmera (leitor de código de barras) */
+/* campo com botão de câmera */
 .campo-com-icone{
   display:flex;
   gap:8px;
@@ -381,7 +381,7 @@ main{
 .stat-card .num{font-family:'Anton',sans-serif; font-size:32px;}
 .stat-card .rotulo{font-size:12px; color:var(--cinza); font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-top:2px;}
 
-/* badge de status oval (referência ao logo) */
+/* selo */
 .selo{
   display:inline-flex;
   align-items:center;
@@ -398,7 +398,7 @@ main{
 .selo-alerta{background:var(--alerta-bg); color:var(--alerta);}
 .selo-azul{background:#E3EEFC; color:#1D5FC2;}
 
-/* painel/card genérico */
+/* painel */
 .painel{
   background:var(--papel);
   border-radius:14px;
@@ -415,7 +415,6 @@ main{
   gap:16px;
 }
 .grade-form .campo-full{grid-column:1/-1;}
-@media(max-width:560px){.grade-form{grid-template-columns:1fr;}}
 
 /* busca */
 .barra-busca{
@@ -436,8 +435,17 @@ main{
 .barra-busca input:focus{border-color:var(--vermelho);}
 
 /* tabela */
-.tabela-wrap{overflow-x:auto; border-radius:12px; border:1px solid var(--borda);}
-table{width:100%; border-collapse:collapse; font-size:13.5px; min-width:680px;}
+.tabela-wrap{
+  overflow-x:auto;
+  border-radius:12px;
+  border:1px solid var(--borda);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13.5px;
+  min-width:680px;
+}
 thead tr{background:var(--fundo);}
 th{
   text-align:left;
@@ -449,7 +457,11 @@ th{
   font-weight:800;
   border-bottom:1px solid var(--borda);
 }
-td{padding:12px 14px; border-bottom:1px solid var(--borda); vertical-align:middle;}
+td{
+  padding:12px 14px;
+  border-bottom:1px solid var(--borda);
+  vertical-align:middle;
+}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:#fbfaf7;}
 .acoes-tabela{display:flex; gap:6px;}
@@ -460,7 +472,7 @@ tbody tr:hover{background:#fbfaf7;}
 }
 .vazio .icone-vazio{font-size:34px; margin-bottom:10px;}
 
-/* relatório filtro data */
+/* relatório */
 .linha-datas{
   display:flex;
   gap:14px;
@@ -482,16 +494,22 @@ tbody tr:hover{background:#fbfaf7;}
 }
 .chip-atalho:hover{border-color:var(--vermelho); color:var(--vermelho);}
 
-/* modal alerta */
+/* modal */
 .modal-fundo{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   background:rgba(20,15,10,0.55);
-  display:flex; align-items:center; justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   z-index:100;
   padding:20px;
   animation:fadeIn .2s ease;
 }
-@keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
+@keyframes fadeIn{
+  from{opacity:0;}
+  to{opacity:1;}
+}
 .modal-caixa{
   background:var(--papel);
   border-radius:16px;
@@ -504,7 +522,10 @@ tbody tr:hover{background:#fbfaf7;}
   box-shadow:0 30px 60px rgba(0,0,0,0.3);
   animation:subir .25s ease;
 }
-@keyframes subir{from{transform:translateY(16px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+@keyframes subir{
+  from{transform:translateY(16px); opacity:0;}
+  to{transform:translateY(0); opacity:1;}
+}
 .modal-topo{
   background:var(--vermelho);
   padding:20px 22px;
@@ -514,16 +535,30 @@ tbody tr:hover{background:#fbfaf7;}
   gap:12px;
 }
 .modal-topo .icone{
-  width:38px; height:38px;
+  width:38px;
+  height:38px;
   background:var(--amarelo);
   border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   font-size:19px;
   flex-shrink:0;
 }
-.modal-topo h3{font-family:'Anton',sans-serif; font-weight:400; font-size:17px;}
-.modal-topo p{font-size:12px; opacity:0.9; margin-top:1px;}
-.modal-corpo{padding:16px 22px; overflow-y:auto;}
+.modal-topo h3{
+  font-family:'Anton',sans-serif;
+  font-weight:400;
+  font-size:17px;
+}
+.modal-topo p{
+  font-size:12px;
+  opacity:0.9;
+  margin-top:1px;
+}
+.modal-corpo{
+  padding:16px 22px;
+  overflow-y:auto;
+}
 .item-alerta{
   display:flex;
   justify-content:space-between;
@@ -535,11 +570,11 @@ tbody tr:hover{background:#fbfaf7;}
 .item-alerta:last-child{border-bottom:none;}
 .item-alerta .nome{font-weight:700; font-size:13.5px;}
 .item-alerta .meta{font-size:11.5px; color:var(--cinza); margin-top:2px;}
-.modal-rodape{padding:16px 22px; border-top:1px solid var(--borda);}
+.modal-rodape{
+  padding:16px 22px;
+  border-top:1px solid var(--borda);
+}
 
 .rodape-nota{
   text-align:center;
   color:var(--cinza-claro);
-  font-size:11.5px;
-  margin-top:30px;
-}

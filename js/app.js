@@ -1,567 +1,864 @@
-/* =========================================================
-   ARMAZENAMENTO — SUPABASE
-   ========================================================= */
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// app.js
+let sb;
 
-let usuarios = [];
 let produtos = [];
+let usuarios = [];
+let logsAtividade = [];
+
 let usuarioLogado = null;
-let usuarioLogadoTipo = 'comum';
+let tipoLogado = null;
+let usuarioSenhaEditandoId = null;
+let usuarioSenhaEditandoNome = "";
 
-async function carregarUsuarios(){
-  const { data, error } = await sb.from('usuarios').select('*');
-  if(error){ console.error('Erro ao carregar usuários:', error); return []; }
-  return data || [];
-}
+let scannerAtivo = false;
+let scannerHandler = null;
 
-async function carregarProdutos(){
-  const { data, error } = await sb.from('produtos').select('*').order('validade', {ascending:true});
-  if(error){ console.error('Erro ao carregar produtos:', error); return []; }
-  return data || [];
-}
-
-async function registrarLog(acao, detalhes, usuarioOverride){
-  try{
-    await sb.from('logs_atividade').insert([{
-      usuario: usuarioOverride || usuarioLogado || 'desconhecido',
-      acao,
-      detalhes
-    }]);
-  }catch(e){
-    console.error('Erro ao registrar log:', e);
-  }
-}
-
-async function iniciar(){
-  usuarios = await carregarUsuarios();
-  produtos = await carregarProdutos();
-  const sessao = localStorage.getItem('sessaoAtual');
-
-  if(usuarios.length === 0){
-    mudarAbaLogin('criar');
-  }
-
-  if(sessao){
-    usuarioLogado = sessao;
-    const u = usuarios.find(x => x.usuario === sessao);
-    usuarioLogadoTipo = u ? (u.tipo || 'comum') : 'comum';
-    entrarNoApp();
-  }
-}
-iniciar();
-
-/* =========================================================
-   LOGIN / CADASTRO DE USUÁRIO
-   ========================================================= */
-function mudarAbaLogin(qual){
-  document.getElementById('aba-entrar').classList.toggle('ativa', qual==='entrar');
-  document.getElementById('aba-criar').classList.toggle('ativa', qual==='criar');
-  document.getElementById('form-entrar').classList.toggle('oculto', qual!=='entrar');
-  document.getElementById('form-criar').classList.toggle('oculto', qual!=='criar');
-  document.getElementById('msg-login').innerHTML = '';
-}
-
-function mostrarMsgLogin(texto, tipo){
-  const cls = tipo === 'erro' ? 'erro-msg' : 'sucesso-msg';
-  document.getElementById('msg-login').innerHTML = `<div class="${cls}">${texto}</div>`;
-}
-
-async function criarConta(ev){
-  ev.preventDefault();
-  const usuario = document.getElementById('criar-usuario').value.trim();
-  const senha = document.getElementById('criar-senha').value;
-  const senha2 = document.getElementById('criar-senha2').value;
-
-  if(senha !== senha2){
-    mostrarMsgLogin('As senhas não coincidem.', 'erro');
-    return false;
-  }
-  if(usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())){
-    mostrarMsgLogin('Esse usuário já existe. Tente outro nome.', 'erro');
-    return false;
-  }
-  const tipo = usuarios.length === 0 ? 'admin' : 'comum';
-  const { error } = await sb.from('usuarios').insert([{ usuario, senha, tipo }]);
-  if(error){
-    mostrarMsgLogin('Não foi possível criar a conta. Tente novamente.', 'erro');
-    console.error(error);
-    return false;
-  }
-  usuarios = await carregarUsuarios();
-  await registrarLog('criacao_conta', `Nova conta criada: ${usuario}${tipo==='admin' ? ' (administrador)' : ''}`, usuario);
-  mostrarMsgLogin(tipo === 'admin' ? 'Conta criada como administrador! Faça login.' : 'Conta criada com sucesso! Faça login.', 'sucesso');
-  document.getElementById('form-criar').reset();
-  setTimeout(() => mudarAbaLogin('entrar'), 900);
-  return false;
-}
-
-async function fazerLogin(ev){
-  ev.preventDefault();
-  const usuario = document.getElementById('login-usuario').value.trim();
-  const senha = document.getElementById('login-senha').value;
-
-  const encontrado = usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase() && u.senha === senha);
-  if(!encontrado){
-    mostrarMsgLogin('Usuário ou senha incorretos.', 'erro');
-    return false;
-  }
-  usuarioLogado = encontrado.usuario;
-  usuarioLogadoTipo = encontrado.tipo || 'comum';
-  localStorage.setItem('sessaoAtual', usuarioLogado);
-  entrarNoApp();
-  return false;
-}
-
-async function fazerLogout(){
-  usuarioLogado = null;
-  usuarioLogadoTipo = 'comum';
-  localStorage.removeItem('sessaoAtual');
-  document.getElementById('app').classList.add('oculto');
-  document.getElementById('tela-login').classList.remove('oculto');
-  document.getElementById('form-entrar').reset();
-}
-
-function entrarNoApp(){
-  document.getElementById('tela-login').classList.add('oculto');
-  document.getElementById('app').classList.remove('oculto');
-  document.getElementById('nome-usuario-logado').textContent = usuarioLogado;
-  document.getElementById('tab-btn-usuarios').classList.toggle('oculto', usuarioLogadoTipo !== 'admin');
-  document.getElementById('tab-btn-logs').classList.toggle('oculto', usuarioLogadoTipo !== 'admin');
-  mudarAba('painel');
-  renderizarTudo();
-  verificarAlertaSemana();
-}
-
-/* =========================================================
-   NAVEGAÇÃO ENTRE ABAS
-   ========================================================= */
-function mudarAba(qual){
-  if((qual === 'usuarios' || qual === 'logs') && usuarioLogadoTipo !== 'admin') qual = 'painel';
-  ['painel','cadastro','busca','relatorio','usuarios','logs'].forEach(a=>{
-    document.getElementById('tab-'+a).classList.toggle('oculto', a!==qual);
-    document.getElementById('tab-btn-'+a).classList.toggle('ativa', a===qual);
-  });
-  if(qual==='busca') renderizarBusca();
-  if(qual==='usuarios') renderizarUsuarios();
-  if(qual==='logs') renderizarLogs();
-}
-
-/* =========================================================
-   UTILITÁRIOS DE DATA / STATUS
-   ========================================================= */
-function hojeSemHora(){
-  const d = new Date();
-  d.setHours(0,0,0,0);
-  return d;
-}
-function paraData(str){
-  // str no formato yyyy-mm-dd
-  const [a,m,d] = str.split('-').map(Number);
-  return new Date(a, m-1, d);
-}
-function diasRestantes(strValidade){
-  const alvo = paraData(strValidade);
-  alvo.setHours(0,0,0,0);
-  const diff = alvo - hojeSemHora();
-  return Math.round(diff / 86400000);
-}
-function formatarDataBR(strValidade){
-  const [a,m,d] = strValidade.split('-');
-  return `${d}/${m}/${a}`;
-}
-function statusProduto(strValidade){
-  const dias = diasRestantes(strValidade);
-  if(dias < 0) return {chave:'vencido', texto:'Vencido', classe:'selo-alerta'};
-  if(dias <= 7) return {chave:'semana', texto: dias===0 ? 'Vence hoje' : `Vence em ${dias}d`, classe:'selo-laranja'};
-  return {chave:'ok', texto:'Dentro da validade', classe:'selo-verde'};
-}
-function seloHtml(strValidade){
-  const s = statusProduto(strValidade);
-  return `<span class="selo ${s.classe}">${s.texto}</span>`;
-}
-
-/* =========================================================
-   CADASTRO / EDIÇÃO / EXCLUSÃO DE PRODUTOS
-   ========================================================= */
-function mostrarMsgCadastro(texto, tipo){
-  const cls = tipo === 'erro' ? 'erro-msg' : 'sucesso-msg';
-  document.getElementById('msg-cadastro').innerHTML = `<div class="${cls}">${texto}</div>`;
-  setTimeout(()=>{ document.getElementById('msg-cadastro').innerHTML=''; }, 2500);
-}
-
-async function salvarProduto(ev){
-  ev.preventDefault();
-  const id = document.getElementById('produto-id').value;
-  const nome = document.getElementById('p-nome').value.trim();
-  const validade = document.getElementById('p-validade').value;
-  const lote = document.getElementById('p-lote').value.trim();
-  const quantidade = parseInt(document.getElementById('p-quantidade').value, 10);
-  const codigo = document.getElementById('p-codigo').value.trim();
-
-  if(id){
-    const { error } = await sb.from('produtos')
-      .update({ nome, validade, lote, quantidade, codigo })
-      .eq('id', id);
-    if(error){
-      mostrarMsgCadastro('Não foi possível salvar as alterações.', 'erro');
-      console.error(error);
-      return false;
-    }
-    mostrarMsgCadastro('Produto atualizado com sucesso!', 'sucesso');
-    await registrarLog('edicao_produto', `Produto editado: ${nome} (lote ${lote})`);
-  } else {
-    const { error } = await sb.from('produtos')
-      .insert([{ nome, validade, lote, quantidade, codigo, cadastrado_por: usuarioLogado }]);
-    if(error){
-      mostrarMsgCadastro('Não foi possível cadastrar o produto.', 'erro');
-      console.error(error);
-      return false;
-    }
-    mostrarMsgCadastro('Produto cadastrado com sucesso!', 'sucesso');
-    await registrarLog('cadastro_produto', `Produto cadastrado: ${nome} (lote ${lote})`);
-  }
-
-  produtos = await carregarProdutos();
-  cancelarEdicao();
-  renderizarTudo();
-}
-
-function editarProduto(id){
-  const p = produtos.find(x => x.id === id);
-  if(!p) return;
-  document.getElementById('produto-id').value = p.id;
-  document.getElementById('p-nome').value = p.nome;
-  document.getElementById('p-validade').value = p.validade;
-  document.getElementById('p-lote').value = p.lote;
-  document.getElementById('p-quantidade').value = p.quantidade;
-  document.getElementById('p-codigo').value = p.codigo;
-  document.getElementById('titulo-cadastro').textContent = 'Editar produto';
-  document.getElementById('btn-salvar-produto').textContent = 'Salvar alterações';
-  document.getElementById('btn-cancelar-edicao').classList.remove('oculto');
-  mudarAba('cadastro');
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-function cancelarEdicao(){
-  document.getElementById('form-produto').reset();
-  document.getElementById('produto-id').value = '';
-  document.getElementById('titulo-cadastro').textContent = 'Cadastrar produto';
-  document.getElementById('btn-salvar-produto').textContent = 'Cadastrar produto';
-  document.getElementById('btn-cancelar-edicao').classList.add('oculto');
-}
-
-async function excluirProduto(id){
-  if(!confirm('Tem certeza que deseja excluir este produto?')) return;
-  const produtoAlvo = produtos.find(p => p.id === id);
-  const { error } = await sb.from('produtos').delete().eq('id', id);
-  if(error){
-    alert('Não foi possível excluir o produto.');
-    console.error(error);
+document.addEventListener("DOMContentLoaded", async () => {
+  if (typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") {
+    mostrarMensagemLogin("Configuração do Supabase ausente.", "erro");
     return;
   }
-  if(produtoAlvo){
-    await registrarLog('exclusao_produto', `Produto excluído: ${produtoAlvo.nome} (lote ${produtoAlvo.lote})`);
+
+  if (!window.supabase) {
+    mostrarMensagemLogin("Biblioteca do Supabase não carregada.", "erro");
+    return;
   }
-  produtos = await carregarProdutos();
-  renderizarTudo();
+
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  carregarSessaoLocal();
+  configurarInterfaceInicial();
+
+  if (usuarioLogado) {
+    mostrarApp();
+    ajustarInterfacePorTipo();
+    await carregarTudo();
+  } else {
+    mostrarTelaLogin();
+  }
+});
+
+function carregarSessaoLocal() {
+  usuarioLogado = localStorage.getItem("usuarioLogado");
+  tipoLogado = localStorage.getItem("tipoLogado");
 }
 
-/* =========================================================
-   RENDERIZAÇÃO — PAINEL
-   ========================================================= */
-function renderizarTudo(){
-  renderizarPainel();
+function configurarInterfaceInicial() {
+  const formEntrar = document.getElementById("form-entrar");
+  const formCriar = document.getElementById("form-criar");
+
+  if (formEntrar) formEntrar.onsubmit = fazerLogin;
+  if (formCriar) formCriar.onsubmit = criarConta;
+}
+
+function mostrarTelaLogin() {
+  document.getElementById("tela-login")?.classList.remove("oculto");
+  document.getElementById("app")?.classList.add("oculto");
+}
+
+function mostrarApp() {
+  document.getElementById("tela-login")?.classList.add("oculto");
+  document.getElementById("app")?.classList.remove("oculto");
+  document.getElementById("nome-usuario-logado").textContent = usuarioLogado || "";
+}
+
+function mostrarMensagemLogin(msg, tipo = "info") {
+  const el = document.getElementById("msg-login");
+  if (!el) return;
+  el.innerHTML = `<div class="msg ${tipo}">${msg}</div>`;
+}
+
+function mostrarMensagemCadastro(msg, tipo = "info") {
+  const el = document.getElementById("msg-cadastro");
+  if (!el) return;
+  el.innerHTML = `<div class="msg ${tipo}">${msg}</div>`;
+}
+
+function mudarAbaLogin(aba) {
+  const botaoEntrar = document.getElementById("aba-entrar");
+  const botaoCriar = document.getElementById("aba-criar");
+  const formEntrar = document.getElementById("form-entrar");
+  const formCriar = document.getElementById("form-criar");
+
+  if (aba === "entrar") {
+    botaoEntrar?.classList.add("ativa");
+    botaoCriar?.classList.remove("ativa");
+    formEntrar?.classList.remove("oculto");
+    formCriar?.classList.add("oculto");
+  } else {
+    botaoCriar?.classList.add("ativa");
+    botaoEntrar?.classList.remove("ativa");
+    formCriar?.classList.remove("oculto");
+    formEntrar?.classList.add("oculto");
+  }
+}
+
+async function fazerLogin(event) {
+  event.preventDefault();
+
+  const usuario = document.getElementById("login-usuario").value.trim();
+  const senha = document.getElementById("login-senha").value.trim();
+
+  if (!usuario || !senha) {
+    mostrarMensagemLogin("Preencha usuário e senha.", "erro");
+    return false;
+  }
+
+  try {
+    const { data, error } = await sb
+      .from("usuarios")
+      .select("id, usuario, tipo")
+      .eq("usuario", usuario)
+      .eq("senha", senha)
+      .limit(1);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      mostrarMensagemLogin("Usuário ou senha inválidos.", "erro");
+      return false;
+    }
+
+    usuarioLogado = data[0].usuario;
+    tipoLogado = data[0].tipo || "user";
+
+    localStorage.setItem("usuarioLogado", usuarioLogado);
+    localStorage.setItem("tipoLogado", tipoLogado);
+
+    mostrarApp();
+    ajustarInterfacePorTipo();
+    await carregarTudo();
+
+    return false;
+  } catch (erro) {
+    console.error("Erro no login:", erro);
+    mostrarMensagemLogin("Erro ao fazer login.", "erro");
+    return false;
+  }
+}
+
+async function criarConta(event) {
+  event.preventDefault();
+
+  const usuario = document.getElementById("criar-usuario").value.trim();
+  const senha = document.getElementById("criar-senha").value.trim();
+  const senha2 = document.getElementById("criar-senha2").value.trim();
+
+  if (!usuario || !senha || !senha2) {
+    mostrarMensagemCadastro("Preencha todos os campos.", "erro");
+    return false;
+  }
+
+  if (senha !== senha2) {
+    mostrarMensagemCadastro("As senhas não conferem.", "erro");
+    return false;
+  }
+
+  try {
+    const { data: existente, error: erroBusca } = await sb
+      .from("usuarios")
+      .select("id")
+      .eq("usuario", usuario)
+      .limit(1);
+
+    if (erroBusca) throw erroBusca;
+
+    if (existente && existente.length > 0) {
+      mostrarMensagemCadastro("Esse usuário já existe.", "erro");
+      return false;
+    }
+
+    const { error } = await sb.from("usuarios").insert([{
+      usuario,
+      senha,
+      tipo: "user",
+      criado_em: new Date().toISOString()
+    }]);
+
+    if (error) throw error;
+
+    mostrarMensagemCadastro("Conta criada com sucesso. Faça login.", "sucesso");
+    mudarAbaLogin("entrar");
+
+    document.getElementById("criar-usuario").value = "";
+    document.getElementById("criar-senha").value = "";
+    document.getElementById("criar-senha2").value = "";
+
+    await registrarLog("Cadastro de usuário", `Usuário criado: ${usuario}`);
+    return false;
+  } catch (erro) {
+    console.error("Erro ao criar conta:", erro);
+    mostrarMensagemCadastro("Erro ao criar conta.", "erro");
+    return false;
+  }
+}
+
+function fazerLogout() {
+  usuarioLogado = null;
+  tipoLogado = null;
+  localStorage.removeItem("usuarioLogado");
+  localStorage.removeItem("tipoLogado");
+  mostrarTelaLogin();
+}
+
+function ajustarInterfacePorTipo() {
+  const admin = tipoLogado === "admin";
+  document.getElementById("tab-btn-usuarios")?.classList.toggle("oculto", !admin);
+  document.getElementById("tab-btn-logs")?.classList.toggle("oculto", !admin);
+}
+
+async function carregarTudo() {
+  await Promise.all([
+    carregarProdutos(),
+    carregarUsuarios(),
+    carregarLogsAtividade()
+  ]);
+
+  atualizarDashboard();
   renderizarBusca();
-  document.getElementById('rel-data-ini').value = '';
-  document.getElementById('rel-data-fim').value = '';
-  document.getElementById('tbody-relatorio').innerHTML = '';
-  document.getElementById('resumo-relatorio').innerHTML = '';
+  renderizarUsuarios();
+  renderizarLogs();
+  preencherFiltroLogsUsuarios();
+  mostrarAlertaVencimentos();
 }
 
-function renderizarPainel(){
-  const total = produtos.length;
-  let vencidos = 0, semana = 0, ok = 0;
-  produtos.forEach(p=>{
-    const s = statusProduto(p.validade).chave;
-    if(s==='vencido') vencidos++;
-    else if(s==='semana') semana++;
+async function carregarProdutos() {
+  try {
+    const { data, error } = await sb
+      .from("produtos")
+      .select("*")
+      .order("validade", { ascending: true });
+
+    if (error) throw error;
+    produtos = data || [];
+  } catch (erro) {
+    console.error("Erro ao carregar produtos:", erro);
+    produtos = [];
+  }
+}
+
+async function carregarUsuarios() {
+  try {
+    const { data, error } = await sb
+      .from("usuarios")
+      .select("id, usuario, criado_em, tipo")
+      .order("usuario", { ascending: true });
+
+    if (error) throw error;
+    usuarios = data || [];
+  } catch (erro) {
+    console.error("Erro ao carregar usuários:", erro);
+    usuarios = [];
+  }
+}
+
+async function carregarLogsAtividade() {
+  try {
+    const { data, error } = await sb
+      .from("logs_atividade")
+      .select("*")
+      .order("criado_em", { ascending: false });
+
+    if (error) throw error;
+    logsAtividade = data || [];
+  } catch (erro) {
+    console.error("Erro ao carregar logs:", erro);
+    logsAtividade = [];
+  }
+}
+
+function atualizarDashboard() {
+  let total = 0;
+  let ok = 0;
+  let semana = 0;
+  let vencidos = 0;
+
+  produtos.forEach((p) => {
+    total++;
+    const status = calcularStatusValidade(p.validade);
+
+    if (status === "vencido") vencidos++;
+    else if (status === "semana") semana++;
     else ok++;
   });
-  document.getElementById('stat-total').textContent = total;
-  document.getElementById('stat-ok').textContent = ok;
-  document.getElementById('stat-semana').textContent = semana;
-  document.getElementById('stat-vencidos').textContent = vencidos;
 
-  const contagemNav = semana + vencidos;
-  const btnPainel = document.getElementById('tab-btn-painel');
-  const existente = btnPainel.querySelector('.badge-contagem');
-  if(existente) existente.remove();
-  if(contagemNav > 0){
-    btnPainel.insertAdjacentHTML('beforeend', ` <span class="badge-contagem">${contagemNav}</span>`);
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-ok").textContent = ok;
+  document.getElementById("stat-semana").textContent = semana;
+  document.getElementById("stat-vencidos").textContent = vencidos;
+
+  const tbody = document.getElementById("tbody-painel-semana");
+  if (!tbody) return;
+
+  const proximos = produtos.filter((p) => {
+    const dias = diferencaDias(p.validade);
+    return dias >= 0 && dias <= 7;
+  });
+
+  if (proximos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="vazio">Nenhum produto vencendo nesta semana.</td></tr>`;
+    return;
   }
 
-  const listaSemana = produtos
-    .filter(p => statusProduto(p.validade).chave !== 'ok')
-    .sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+  tbody.innerHTML = proximos.map(renderLinhaProduto).join("");
+}
 
-  const corpo = document.getElementById('tbody-painel-semana');
-  if(listaSemana.length === 0){
-    corpo.innerHTML = `<tr><td colspan="7"><div class="vazio"><div class="icone-vazio">✅</div>Nenhum produto vencendo esta semana.</div></td></tr>`;
-  } else {
-    corpo.innerHTML = listaSemana.map(linhaTabela).join('');
+function renderLinhaProduto(p) {
+  const status = statusProduto(p.validade);
+
+  return `
+    <tr>
+      <td>${escapeHtml(p.nome || "")}</td>
+      <td>${escapeHtml(p.lote || "")}</td>
+      <td>${escapeHtml(p.codigo || "")}</td>
+      <td>${escapeHtml(String(p.quantidade ?? ""))}</td>
+      <td>${formatarDataBR(p.validade)}</td>
+      <td><span class="selo selo-${status.classe}">${status.texto}</span></td>
+      <td>${escapeHtml(p.cadastrado_por || "")}</td>
+    </tr>
+  `;
+}
+
+function renderizarBusca() {
+  const termo = (document.getElementById("campo-busca")?.value || "").trim().toLowerCase();
+  const tbody = document.getElementById("tbody-busca");
+  if (!tbody) return;
+
+  const filtrados = produtos.filter((p) => {
+    const nome = (p.nome || "").toLowerCase();
+    const codigo = (p.codigo || "").toLowerCase();
+    return nome.includes(termo) || codigo.includes(termo);
+  });
+
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="vazio">Nenhum produto encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtrados.map((p) => {
+    const status = statusProduto(p.validade);
+
+    return `
+      <tr>
+        <td>${escapeHtml(p.nome || "")}</td>
+        <td>${escapeHtml(p.lote || "")}</td>
+        <td>${escapeHtml(p.codigo || "")}</td>
+        <td>${escapeHtml(String(p.quantidade ?? ""))}</td>
+        <td>${formatarDataBR(p.validade)}</td>
+        <td><span class="selo selo-${status.classe}">${status.texto}</span></td>
+        <td>${escapeHtml(p.cadastrado_por || "")}</td>
+        <td>
+          <div class="acoes-tabela">
+            <button type="button" class="btn btn-secundario btn-pequeno" onclick="editarProduto('${p.id}')">Editar</button>
+            <button type="button" class="btn btn-perigo btn-pequeno" onclick="excluirProduto('${p.id}')">Excluir</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function salvarProduto(event) {
+  event.preventDefault();
+
+  const id = document.getElementById("produto-id").value.trim();
+  const nome = document.getElementById("p-nome").value.trim();
+  const validade = document.getElementById("p-validade").value;
+  const lote = document.getElementById("p-lote").value.trim();
+  const quantidade = parseInt(document.getElementById("p-quantidade").value, 10);
+  const codigo = document.getElementById("p-codigo").value.trim();
+
+  if (!nome || !validade || !lote || !codigo || Number.isNaN(quantidade)) {
+    mostrarMensagemCadastro("Preencha todos os campos corretamente.", "erro");
+    return false;
+  }
+
+  try {
+    const payload = {
+      nome,
+      validade,
+      lote,
+      quantidade,
+      codigo,
+      cadastrado_em: new Date().toISOString(),
+      cadastrado_por: usuarioLogado || "sistema"
+    };
+
+    let error;
+
+    if (id) {
+      const resp = await sb.from("produtos").update(payload).eq("id", id);
+      error = resp.error;
+      await registrarLog("Edição de produto", `Produto editado: ${nome}`);
+    } else {
+      const resp = await sb.from("produtos").insert([payload]);
+      error = resp.error;
+      await registrarLog("Cadastro de produto", `Produto cadastrado: ${nome}`);
+    }
+
+    if (error) throw error;
+
+    mostrarMensagemCadastro(id ? "Produto atualizado com sucesso." : "Produto cadastrado com sucesso.", "sucesso");
+    cancelarEdicao();
+    await carregarTudo();
+    return false;
+  } catch (erro) {
+    console.error("Erro ao salvar produto:", erro);
+    mostrarMensagemCadastro("Erro ao salvar produto.", "erro");
+    return false;
   }
 }
 
-function linhaTabela(p, comAcoes){
-  return `<tr>
-    <td><strong>${escapeHtml(p.nome)}</strong></td>
-    <td>${escapeHtml(p.lote)}</td>
-    <td>${escapeHtml(p.codigo)}</td>
-    <td>${p.quantidade}</td>
-    <td>${formatarDataBR(p.validade)}</td>
-    <td>${seloHtml(p.validade)}</td>
-    <td>${escapeHtml(p.cadastrado_por || '—')}</td>
-    ${comAcoes ? `<td class="acoes-tabela">
-      <button class="btn btn-secundario btn-pequeno" onclick="editarProduto('${p.id}')">Editar</button>
-      <button class="btn btn-perigo btn-pequeno" onclick="excluirProduto('${p.id}')">Excluir</button>
-    </td>` : ''}
-  </tr>`;
+function cancelarEdicao() {
+  document.getElementById("produto-id").value = "";
+  document.getElementById("form-produto").reset();
+  document.getElementById("btn-cancelar-edicao").classList.add("oculto");
+  document.getElementById("btn-salvar-produto").textContent = "Cadastrar produto";
+  document.getElementById("titulo-cadastro").textContent = "Cadastrar produto";
 }
 
-function escapeHtml(txt){
-  const d = document.createElement('div');
-  d.textContent = txt ?? '';
-  return d.innerHTML;
+async function editarProduto(id) {
+  const p = produtos.find((item) => String(item.id) === String(id));
+  if (!p) return;
+
+  document.getElementById("produto-id").value = p.id;
+  document.getElementById("p-nome").value = p.nome || "";
+  document.getElementById("p-validade").value = p.validade || "";
+  document.getElementById("p-lote").value = p.lote || "";
+  document.getElementById("p-quantidade").value = p.quantidade ?? "";
+  document.getElementById("p-codigo").value = p.codigo || "";
+
+  document.getElementById("btn-cancelar-edicao").classList.remove("oculto");
+  document.getElementById("btn-salvar-produto").textContent = "Salvar alterações";
+  document.getElementById("titulo-cadastro").textContent = "Editar produto";
+  mudarAba("cadastro");
 }
 
-/* =========================================================
-   RENDERIZAÇÃO — BUSCA
-   ========================================================= */
-function renderizarBusca(){
-  const termo = (document.getElementById('campo-busca').value || '').trim().toLowerCase();
-  let lista = [...produtos].sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+async function excluirProduto(id) {
+  if (!confirm("Tem certeza que deseja excluir este produto?")) return;
 
-  if(termo){
-    lista = lista.filter(p =>
-      p.nome.toLowerCase().includes(termo) ||
-      p.codigo.toLowerCase().includes(termo)
-    );
+  try {
+    const produto = produtos.find((item) => String(item.id) === String(id));
+
+    const { error } = await sb.from("produtos").delete().eq("id", id);
+    if (error) throw error;
+
+    if (produto) {
+      await registrarLog("Exclusão de produto", `Produto excluído: ${produto.nome}`);
+    }
+
+    await carregarTudo();
+  } catch (erro) {
+    console.error("Erro ao excluir produto:", erro);
+    alert("Erro ao excluir produto.");
   }
-
-  const corpo = document.getElementById('tbody-busca');
-  if(lista.length === 0){
-    corpo.innerHTML = `<tr><td colspan="8"><div class="vazio"><div class="icone-vazio">📦</div>${produtos.length===0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto encontrado para essa busca.'}</div></td></tr>`;
-  } else {
-    corpo.innerHTML = lista.map(p => linhaTabela(p, true)).join('');
-  }
 }
 
-/* =========================================================
-   RELATÓRIO POR PERÍODO
-   ========================================================= */
-function atalhoData(dias){
-  const ini = hojeSemHora();
-  const fim = new Date(ini);
+function mudarAba(aba) {
+  const abas = ["painel", "cadastro", "busca", "relatorio", "usuarios", "logs"];
+
+  abas.forEach((id) => {
+    document.getElementById(`tab-${id}`)?.classList.toggle("oculto", id !== aba);
+    document.getElementById(`tab-btn-${id}`)?.classList.toggle("ativa", id === aba);
+  });
+}
+
+function statusProduto(dataValidade) {
+  const dias = diferencaDias(dataValidade);
+
+  if (dias < 0) return { classe: "alerta", texto: "Vencido" };
+  if (dias <= 7) return { classe: "laranja", texto: "Vence em breve" };
+  return { classe: "verde", texto: "OK" };
+}
+
+function calcularStatusValidade(dataValidade) {
+  const dias = diferencaDias(dataValidade);
+  if (dias < 0) return "vencido";
+  if (dias <= 7) return "semana";
+  return "ok";
+}
+
+function diferencaDias(dataValidade) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  const validade = new Date(dataValidade);
+  validade.setHours(0, 0, 0, 0);
+
+  return Math.ceil((validade - hoje) / (1000 * 60 * 60 * 24));
+}
+
+function formatarDataBR(data) {
+  if (!data) return "";
+  return new Date(data).toLocaleDateString("pt-BR");
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function atalhoData(dias) {
+  const ini = new Date();
+  const fim = new Date();
   fim.setDate(fim.getDate() + dias);
-  document.getElementById('rel-data-ini').value = paraInputDate(ini);
-  document.getElementById('rel-data-fim').value = paraInputDate(fim);
+
+  document.getElementById("rel-data-ini").value = ini.toISOString().slice(0, 10);
+  document.getElementById("rel-data-fim").value = fim.toISOString().slice(0, 10);
+
   gerarRelatorio();
 }
-function paraInputDate(d){
-  const a = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${a}-${m}-${dd}`;
-}
 
-function gerarRelatorio(){
-  const ini = document.getElementById('rel-data-ini').value;
-  const fim = document.getElementById('rel-data-fim').value;
-  const corpo = document.getElementById('tbody-relatorio');
-  const resumo = document.getElementById('resumo-relatorio');
+function gerarRelatorio() {
+  const ini = document.getElementById("rel-data-ini").value;
+  const fim = document.getElementById("rel-data-fim").value;
+  const tbody = document.getElementById("tbody-relatorio");
+  const resumo = document.getElementById("resumo-relatorio");
 
-  if(!ini || !fim){
-    resumo.innerHTML = `<div class="erro-msg">Selecione a data inicial e a data final.</div>`;
-    corpo.innerHTML = '';
-    return;
-  }
-  if(paraData(ini) > paraData(fim)){
-    resumo.innerHTML = `<div class="erro-msg">A data inicial não pode ser depois da data final.</div>`;
-    corpo.innerHTML = '';
+  if (!ini || !fim) {
+    resumo.innerHTML = `<div class="msg erro">Selecione a data inicial e final.</div>`;
+    tbody.innerHTML = "";
     return;
   }
 
-  const dIni = paraData(ini);
-  const dFim = paraData(fim);
-  const lista = produtos
-    .filter(p => {
-      const dv = paraData(p.validade);
-      return dv >= dIni && dv <= dFim;
-    })
-    .sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+  const dataIni = new Date(ini);
+  const dataFim = new Date(fim);
+  dataFim.setHours(23, 59, 59, 999);
 
-  const totalQtd = lista.reduce((s,p)=> s + (p.quantidade||0), 0);
-  resumo.innerHTML = `<div class="sucesso-msg">Período de ${formatarDataBR(ini)} até ${formatarDataBR(fim)}: <strong>${lista.length}</strong> produto(s) encontrados, totalizando <strong>${totalQtd}</strong> unidades.</div>`;
+  const filtrados = produtos.filter((p) => {
+    const v = new Date(p.validade);
+    return v >= dataIni && v <= dataFim;
+  });
 
-  if(lista.length === 0){
-    corpo.innerHTML = `<tr><td colspan="7"><div class="vazio"><div class="icone-vazio">🗓️</div>Nenhum produto vence nesse período.</div></td></tr>`;
-  } else {
-    corpo.innerHTML = lista.map(linhaTabela).join('');
-  }
+  resumo.innerHTML = `<div class="msg sucesso">Encontrados ${filtrados.length} produto(s).</div>`;
+  tbody.innerHTML = filtrados.map(renderLinhaProduto).join("");
 }
 
-/* =========================================================
-   ALERTA POP-UP DE VENCIMENTO SEMANAL
-   ========================================================= */
-function verificarAlertaSemana(){
-  const vencendo = produtos.filter(p => statusProduto(p.validade).chave !== 'ok')
-    .sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+function renderizarUsuarios() {
+  const tbody = document.getElementById("tbody-usuarios");
+  if (!tbody) return;
 
-  if(vencendo.length === 0) return;
-
-  document.getElementById('modal-subtitulo').textContent =
-    `${vencendo.length} produto(s) vencido(s) ou vencendo nos próximos 7 dias`;
-
-  const lista = vencendo.map(p => {
-    const s = statusProduto(p.validade);
-    return `<div class="item-alerta">
-      <div>
-        <div class="nome">${escapeHtml(p.nome)}</div>
-        <div class="meta">Lote ${escapeHtml(p.lote)} · ${p.quantidade} un. · Vence em ${formatarDataBR(p.validade)}</div>
-      </div>
-      <span class="selo ${s.classe}">${s.texto}</span>
-    </div>`;
-  }).join('');
-
-  document.getElementById('modal-lista').innerHTML = lista;
-  document.getElementById('modal-alerta').classList.remove('oculto');
-}
-function fecharModal(){
-  document.getElementById('modal-alerta').classList.add('oculto');
+  tbody.innerHTML = usuarios.map((u) => `
+    <tr>
+      <td>${escapeHtml(u.usuario || "")}</td>
+      <td>${escapeHtml(u.tipo || "")}</td>
+      <td>${formatarDataBR(u.criado_em)}</td>
+      <td>
+        <button type="button" class="btn btn-secundario" onclick="abrirModalSenha('${u.id}', '${escapeHtml(u.usuario || "")}')">
+          Alterar senha
+        </button>
+      </td>
+    </tr>
+  `).join("");
 }
 
-/* =========================================================
-   SCANNER DE CÓDIGO DE BARRAS (câmera)
-   ========================================================= */
-let leitorCodigoBarras = null;
-let streamCameraAtual = null;
+function renderizarLogs() {
+  const tbody = document.getElementById("tbody-logs");
+  if (!tbody) return;
 
-async function abrirScanner(){
-  document.getElementById('modal-scanner').classList.remove('oculto');
-  const statusEl = document.getElementById('scanner-status');
-  statusEl.textContent = 'Iniciando câmera...';
-  statusEl.className = 'scanner-status';
+  const usuarioFiltro = document.getElementById("filtro-log-usuario")?.value || "";
+  const dataFiltro = document.getElementById("filtro-log-data")?.value || "";
 
-  if(typeof ZXing === 'undefined'){
-    statusEl.textContent = 'Não foi possível carregar o leitor. Verifique sua internet.';
-    statusEl.className = 'scanner-status erro';
-    return;
-  }
+  const filtrados = logsAtividade.filter((l) => {
+    const okUsuario = !usuarioFiltro || l.usuario === usuarioFiltro;
+    const okData = !dataFiltro || String(l.criado_em || "").startsWith(dataFiltro);
+    return okUsuario && okData;
+  });
 
-  try{
-    leitorCodigoBarras = new ZXing.BrowserMultiFormatReader();
-    const videoEl = document.getElementById('scanner-video');
-
-    const dispositivos = await leitorCodigoBarras.listVideoInputDevices();
-    // prioriza câmera traseira em celulares
-    const traseira = dispositivos.find(d => /back|traseira|rear|environment/i.test(d.label));
-    const idCamera = traseira ? traseira.deviceId : (dispositivos[0] ? dispositivos[0].deviceId : undefined);
-
-    statusEl.textContent = 'Aponte para o código de barras...';
-
-    leitorCodigoBarras.decodeFromVideoDevice(idCamera, videoEl, (resultado, erro, controls) => {
-      streamCameraAtual = controls;
-      if(resultado){
-        const codigoLido = resultado.getText();
-        document.getElementById('p-codigo').value = codigoLido;
-        statusEl.textContent = 'Código lido: ' + codigoLido;
-        statusEl.className = 'scanner-status sucesso';
-        if(navigator.vibrate) navigator.vibrate(120);
-        setTimeout(fecharScanner, 700);
-      }
-    });
-  }catch(e){
-    console.error(e);
-    let motivo = 'Verifique as permissões do navegador.';
-    if(e && e.name === 'NotAllowedError') motivo = 'Permissão de câmera negada. Libere o acesso à câmera para este site.';
-    else if(e && e.name === 'NotFoundError') motivo = 'Nenhuma câmera foi encontrada neste dispositivo.';
-    else if(e && e.name === 'NotReadableError') motivo = 'A câmera já está sendo usada por outro aplicativo.';
-    else if(e && e.message) motivo = e.message;
-    statusEl.textContent = 'Não foi possível acessar a câmera. ' + motivo;
-    statusEl.className = 'scanner-status erro';
-  }
+  tbody.innerHTML = filtrados.map((l) => `
+    <tr>
+      <td>${formatarDataBR(l.criado_em)}</td>
+      <td>${escapeHtml(l.usuario || "")}</td>
+      <td>${escapeHtml(l.acao || "")}</td>
+      <td>${escapeHtml(l.detalhes || "")}</td>
+    </tr>
+  `).join("");
 }
 
-function fecharScanner(){
-  try{
-    if(leitorCodigoBarras){
-      leitorCodigoBarras.reset();
-      leitorCodigoBarras = null;
+function preencherFiltroLogsUsuarios() {
+  const select = document.getElementById("filtro-log-usuario");
+  if (!select) return;
+
+  const nomes = [...new Set(logsAtividade.map((l) => l.usuario).filter(Boolean))];
+  select.innerHTML = `<option value="">Todos os usuários</option>` +
+    nomes.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+}
+
+function filtrarLogs() {
+  renderizarLogs();
+}
+
+function limparFiltrosLogs() {
+  document.getElementById("filtro-log-usuario").value = "";
+  document.getElementById("filtro-log-data").value = "";
+  renderizarLogs();
+}
+
+function registrarLog(acao, detalhes) {
+  if (!sb) return;
+
+  const usuario = usuarioLogado || "sistema";
+
+  sb.from("logs_atividade").insert([{
+    usuario,
+    acao,
+    detalhes,
+    criado_em: new Date().toISOString()
+  }]).then(({ error }) => {
+    if (error) {
+      console.error("Erro ao registrar log:", error);
+    } else {
+      carregarLogsAtividade();
     }
-  }catch(e){ /* ignora */ }
-  document.getElementById('modal-scanner').classList.add('oculto');
+  });
 }
 
-/* =========================================================
-   USUÁRIOS (ADMIN)
-   ========================================================= */
-function renderizarUsuarios(){
-  const corpo = document.getElementById('tbody-usuarios');
-  if(usuarios.length === 0){
-    corpo.innerHTML = `<tr><td colspan="3"><div class="vazio">Nenhum usuário encontrado.</div></td></tr>`;
+function mostrarAlertaVencimentos() {
+  const modal = document.getElementById("modal-alerta");
+  const subtitulo = document.getElementById("modal-subtitulo");
+  const lista = document.getElementById("modal-lista");
+
+  if (!modal || !subtitulo || !lista) return;
+
+  const proximos = produtos.filter((p) => {
+    const dias = diferencaDias(p.validade);
+    return dias >= 0 && dias <= 7;
+  });
+
+  if (proximos.length === 0) {
+    modal.classList.add("oculto");
     return;
   }
-  const lista = [...usuarios].sort((a,b) => (a.usuario||'').localeCompare(b.usuario||''));
-  corpo.innerHTML = lista.map(u => {
-    const criado = u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—';
-    const seloTipo = u.tipo === 'admin'
-      ? `<span class="selo selo-laranja">Administrador</span>`
-      : `<span class="selo selo-verde">Usuário</span>`;
-    return `<tr>
-      <td><strong>${escapeHtml(u.usuario)}</strong></td>
-      <td>${seloTipo}</td>
-      <td>${criado}</td>
-    </tr>`;
-  }).join('');
+
+  subtitulo.textContent = `${proximos.length} produto(s) vencem nos próximos 7 dias.`;
+  lista.innerHTML = proximos.map((p) => {
+    const dias = diferencaDias(p.validade);
+    return `
+      <div class="item-alerta">
+        <div>
+          <div class="nome">${escapeHtml(p.nome || "")}</div>
+          <div class="meta">${escapeHtml(p.lote || "")} • Vence em ${dias} dia(s)</div>
+        </div>
+        <span class="selo selo-laranja">Atenção</span>
+      </div>
+    `;
+  }).join("");
+
+  modal.classList.remove("oculto");
 }
 
-/* =========================================================
-   LOGS DE ATIVIDADE (ADMIN)
-   ========================================================= */
-const ROTULOS_ACAO = {
-  cadastro_produto: {texto:'Cadastro de produto', classe:'selo-verde'},
-  edicao_produto:   {texto:'Edição de produto',   classe:'selo-azul'},
-  exclusao_produto: {texto:'Exclusão de produto',  classe:'selo-alerta'},
-  criacao_conta:    {texto:'Criação de conta',     classe:'selo-laranja'}
-};
+function fecharModal() {
+  document.getElementById("modal-alerta")?.classList.add("oculto");
+}
 
-async function renderizarLogs(){
-  const corpo = document.getElementById('tbody-logs');
-  corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Carregando...</div></td></tr>`;
+async function abrirScanner() {
+  const modal = document.getElementById("modal-scanner");
+  const statusEl = document.getElementById("scanner-status");
+  const videoWrap = document.getElementById("scanner-video-wrap");
 
-  const { data, error } = await sb.from('logs_atividade')
-    .select('*')
-    .order('criado_em', {ascending:false})
-    .limit(200);
+  if (!modal || !statusEl || !videoWrap) return;
 
-  if(error){
-    corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Não foi possível carregar os logs.</div></td></tr>`;
-    console.error(error);
-    return;
-  }
-  if(!data || data.length === 0){
-    corpo.innerHTML = `<tr><td colspan="4"><div class="vazio">Nenhuma atividade registrada ainda.</div></td></tr>`;
+  modal.classList.remove("oculto");
+  statusEl.textContent = "Iniciando câmera...";
+  statusEl.className = "scanner-status";
+
+  if (!window.Quagga) {
+    statusEl.textContent = "Biblioteca Quagga não carregada.";
+    statusEl.className = "scanner-status erro";
     return;
   }
 
-  corpo.innerHTML = data.map(l => {
-    const dataHora = l.criado_em ? new Date(l.criado_em).toLocaleString('pt-BR') : '—';
-    const rotulo = ROTULOS_ACAO[l.acao] || {texto: l.acao, classe:'selo-verde'};
-    return `<tr>
-      <td>${dataHora}</td>
-      <td><strong>${escapeHtml(l.usuario)}</strong></td>
-      <td><span class="selo ${rotulo.classe}">${rotulo.texto}</span></td>
-      <td>${escapeHtml(l.detalhes || '—')}</td>
-    </tr>`;
-  }).join('');
+  if (scannerAtivo) {
+    fecharScanner();
+  }
+
+  try {
+    Quagga.init(
+  {
+    inputStream: {
+      name: "Live",
+      type: "LiveStream",
+      target: videoWrap,
+      constraints: {
+        facingMode: { ideal: "environment" },
+        width: { min: 640, ideal: 1280 },
+        height: { min: 480, ideal: 720 }
+      },
+      area: {
+        top: "30%",
+        bottom: "30%",
+        left: "8%",
+        right: "8%"
+      }
+    },
+    locator: {
+      patchSize: "medium",
+      halfSample: true
+    },
+    numOfWorkers: 0,
+    frequency: 10,
+    decoder: {
+      readers: [
+        "ean_reader",
+        "ean_8_reader",
+        "code_128_reader",
+        "upc_reader",
+        "upc_e_reader"
+      ],
+      multiple: false
+    },
+    locate: true
+  },
+  async function (err) {
+         if (err) {
+          console.error(err);
+          statusEl.textContent = "Não foi possível acessar a câmera.";
+          statusEl.className = "scanner-status erro";
+          return;
+        }
+
+        scannerAtivo = true;
+        Quagga.start();
+        statusEl.textContent = "Aponte para o código de barras...";
+        statusEl.className = "scanner-status";
+
+        setTimeout(async () => {
+          try {
+            const video = videoWrap.querySelector("video");
+            if (!video || !video.srcObject) return;
+
+            const track = video.srcObject.getVideoTracks()[0];
+            const support = navigator.mediaDevices?.getSupportedConstraints?.() || {};
+            const caps = track.getCapabilities ? track.getCapabilities() : {};
+            const settings = track.getSettings ? track.getSettings() : {};
+
+            if (!support.zoom || !caps.zoom) {
+              console.log("Zoom não suportado neste navegador/aparelho.");
+              return;
+            }
+
+            const atual = settings.zoom ?? caps.zoom.min ?? 1;
+            const novoZoom = Math.max(caps.zoom.min ?? 1, atual / 2);
+
+            await track.applyConstraints({
+              advanced: [{ zoom: novoZoom }]
+            });
+
+            console.log("Zoom ajustado para:", novoZoom);
+          } catch (e) {
+            console.log("Não foi possível aplicar zoom:", e);
+          }
+        }, 800);
+      }
+    );
+
+    if (scannerHandler) {
+      Quagga.offDetected(scannerHandler);
+      scannerHandler = null;
+    }
+
+    scannerHandler = function (result) {
+      if (!result || !result.codeResult || !result.codeResult.code) return;
+
+      const codigoLido = result.codeResult.code;
+      const input = document.getElementById("p-codigo");
+      if (input) input.value = codigoLido;
+
+      statusEl.textContent = "Código lido: " + codigoLido;
+      statusEl.className = "scanner-status sucesso";
+
+      if (navigator.vibrate) navigator.vibrate(120);
+
+      setTimeout(() => {
+        fecharScanner();
+      }, 700);
+    };
+
+    Quagga.onDetected(scannerHandler);
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = "Não foi possível iniciar o scanner.";
+    statusEl.className = "scanner-status erro";
+  }
+}
+
+
+function fecharScanner() {
+  try {
+    if (scannerHandler && window.Quagga) {
+      Quagga.offDetected(scannerHandler);
+      scannerHandler = null;
+    }
+
+    if (scannerAtivo && window.Quagga) {
+      Quagga.stop();
+    }
+  } catch (e) {
+    console.error("Erro ao fechar scanner:", e);
+  }
+
+  scannerAtivo = false;
+  document.getElementById("modal-scanner")?.classList.add("oculto");
+}
+
+
+function abrirModalSenha(id, usuario) {
+  usuarioSenhaEditandoId = id;
+  usuarioSenhaEditandoNome = usuario;
+
+  const modal = document.getElementById("modal-senha");
+  const nomeEl = document.getElementById("senha-usuario-nome");
+  const inputSenha = document.getElementById("nova-senha");
+
+  if (nomeEl) nomeEl.textContent = usuario;
+  if (inputSenha) inputSenha.value = "";
+  if (modal) modal.classList.remove("oculto");
+}
+
+function fecharModalSenha() {
+  usuarioSenhaEditandoId = null;
+  usuarioSenhaEditandoNome = "";
+  document.getElementById("modal-senha")?.classList.add("oculto");
+}
+
+async function salvarNovaSenha(event) {
+  event.preventDefault();
+
+  const novaSenha = document.getElementById("nova-senha").value.trim();
+
+  if (!usuarioSenhaEditandoId || !novaSenha) {
+    mostrarMensagemCadastro("Informe a nova senha.", "erro");
+    return false;
+  }
+
+  try {
+    const { error } = await sb
+      .from("usuarios")
+      .update({ senha: novaSenha })
+      .eq("id", usuarioSenhaEditandoId)
+      .select();
+
+    if (error) throw error;
+
+    await registrarLog(
+      "Alteração de senha",
+      `Senha alterada para o usuário: ${usuarioSenhaEditandoNome}`
+    );
+
+    mostrarMensagemCadastro("Senha alterada com sucesso.", "sucesso");
+    fecharModalSenha();
+
+    await carregarUsuarios();
+    renderizarUsuarios();
+
+    return false;
+  } catch (erro) {
+    console.error("Erro ao alterar senha:", erro);
+    mostrarMensagemCadastro("Erro ao alterar senha.", "erro");
+    return false;
+  }
 }
