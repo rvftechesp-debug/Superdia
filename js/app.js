@@ -11,6 +11,7 @@ let usuarioSenhaEditandoId = null;
 let usuarioSenhaEditandoNome = "";
 
 let leitorCodigoBarras = null;
+let scannerCampoDestino = "p-codigo";
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") {
@@ -654,7 +655,8 @@ function fecharModal() {
   document.getElementById("modal-alerta")?.classList.add("oculto");
 }
 
-async function abrirScanner() {
+async function abrirScanner(campoDestino) {
+  scannerCampoDestino = campoDestino || "p-codigo";
   const modal = document.getElementById("modal-scanner");
   const statusEl = document.getElementById("scanner-status");
   const videoEl = document.getElementById("scanner-video");
@@ -683,13 +685,17 @@ async function abrirScanner() {
     leitorCodigoBarras.decodeFromVideoDevice(idCamera, videoEl, (resultado, erro) => {
       if (resultado) {
         const codigoLido = resultado.getText();
-        const input = document.getElementById("p-codigo");
+        const input = document.getElementById(scannerCampoDestino);
         if (input) input.value = codigoLido;
 
         statusEl.textContent = "Código lido: " + codigoLido;
         statusEl.className = "scanner-status sucesso";
 
         if (navigator.vibrate) navigator.vibrate(120);
+
+        if (scannerCampoDestino === "campo-busca") {
+          renderizarBusca();
+        }
 
         setTimeout(fecharScanner, 700);
       }

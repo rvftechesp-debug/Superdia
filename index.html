@@ -180,7 +180,7 @@
                 <label for="p-codigo">Código de barras</label>
                 <div class="campo-com-icone">
                   <input type="text" id="p-codigo" placeholder="Ex: 7891234567890" required />
-                  <button type="button" class="btn-camera" onclick="abrirScanner()" title="Ler código de barras com a câmera">📷</button>
+                  <button type="button" class="btn-camera" onclick="abrirScanner('p-codigo')" title="Ler código de barras com a câmera">📷</button>
                 </div>
               </div>
             </div>
@@ -208,6 +208,7 @@
             placeholder="Digite o nome do produto ou o código de barras..."
             oninput="renderizarBusca()"
           />
+          <button type="button" class="btn-camera" onclick="abrirScanner('campo-busca')" title="Ler código de barras com a câmera">📷</button>
         </div>
 
         <div class="tabela-wrap">
