@@ -612,6 +612,62 @@ function imprimirRelatorio() {
   window.print();
 }
 
+function baixarRelatorioPDF() {
+  if (!ultimoRelatorioFiltrado || !ultimoRelatorioFiltrado.lista) {
+    alert("Gere o relatório primeiro, depois clique em baixar PDF.");
+    return;
+  }
+
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("Não foi possível carregar o gerador de PDF. Verifique sua internet e tente novamente.");
+    return;
+  }
+
+  const { ini, fim, lista } = ultimoRelatorioFiltrado;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape" });
+
+  const agora = new Date().toLocaleString("pt-BR");
+  const periodo = `${formatarDataBR(ini)} até ${formatarDataBR(fim)}`;
+
+  doc.setFontSize(16);
+  doc.setTextColor(227, 30, 36);
+  doc.text("SUPER DIA EXPRESS", 14, 16);
+
+  doc.setFontSize(12);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Relatório de Vencimentos", 14, 24);
+
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Período: ${periodo}`, 14, 31);
+  doc.text(`Gerado em: ${agora}  ·  Por: ${usuarioLogado || ""}  ·  Total: ${lista.length} produto(s)`, 14, 36);
+
+  const linhasOrdenadas = lista.slice().sort((a, b) => new Date(a.validade) - new Date(b.validade));
+
+  const linhasTabela = linhasOrdenadas.map((p) => [
+    p.nome || "",
+    p.lote || "",
+    p.codigo || "",
+    String(p.quantidade ?? ""),
+    formatarDataBR(p.validade),
+    statusTextoSimples(p),
+    p.cadastrado_por || "",
+  ]);
+
+  doc.autoTable({
+    startY: 42,
+    head: [["Produto", "Lote", "Cód. barras", "Quantidade", "Vencimento", "Status", "Cadastrado por"]],
+    body: linhasTabela,
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [227, 30, 36], textColor: 255 },
+    alternateRowStyles: { fillColor: [246, 244, 239] },
+  });
+
+  const nomeArquivo = `relatorio-vencimentos-${ini}-a-${fim}.pdf`;
+  doc.save(nomeArquivo);
+}
+
 function renderizarUsuarios() {
   const tbody = document.getElementById("tbody-usuarios");
   if (!tbody) return;
