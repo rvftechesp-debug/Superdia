@@ -12,6 +12,7 @@ let usuarioSenhaEditandoNome = "";
 
 let leitorCodigoBarras = null;
 let scannerCampoDestino = "p-codigo";
+let ultimoRelatorioFiltrado = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") {
@@ -543,6 +544,72 @@ function gerarRelatorio() {
 
   resumo.innerHTML = `<div class="msg sucesso">Encontrados ${filtrados.length} produto(s).</div>`;
   tbody.innerHTML = filtrados.map(renderLinhaProduto).join("");
+
+  ultimoRelatorioFiltrado = { ini, fim, lista: filtrados };
+}
+
+/* =========================================================
+   IMPRIMIR / SALVAR PDF DO RELATÓRIO
+   ========================================================= */
+function statusTextoSimples(p) {
+  const status = statusProduto(p.validade);
+  return status.texto;
+}
+
+function imprimirRelatorio() {
+  if (!ultimoRelatorioFiltrado || !ultimoRelatorioFiltrado.lista) {
+    alert("Gere o relatório primeiro, depois clique em imprimir.");
+    return;
+  }
+
+  const { ini, fim, lista } = ultimoRelatorioFiltrado;
+  const areaImpressao = document.getElementById("area-impressao");
+  if (!areaImpressao) return;
+
+  const agora = new Date().toLocaleString("pt-BR");
+  const periodo = `${formatarDataBR(ini)} até ${formatarDataBR(fim)}`;
+
+  const linhas = lista
+    .slice()
+    .sort((a, b) => new Date(a.validade) - new Date(b.validade))
+    .map((p) => `
+      <tr>
+        <td>${escapeHtml(p.nome || "")}</td>
+        <td>${escapeHtml(p.lote || "")}</td>
+        <td>${escapeHtml(p.codigo || "")}</td>
+        <td>${escapeHtml(String(p.quantidade ?? ""))}</td>
+        <td>${formatarDataBR(p.validade)}</td>
+        <td>${escapeHtml(statusTextoSimples(p))}</td>
+        <td>${escapeHtml(p.cadastrado_por || "")}</td>
+      </tr>
+    `)
+    .join("");
+
+  areaImpressao.innerHTML = `
+    <div class="impressao-cabecalho">
+      <div class="impressao-logo">SUPER DIA <span>EXPRESS</span></div>
+      <h1>Relatório de Vencimentos</h1>
+      <p>Período: ${periodo}</p>
+      <p>Gerado em: ${agora} · Por: ${escapeHtml(usuarioLogado || "")}</p>
+      <p>Total de produtos encontrados: ${lista.length}</p>
+    </div>
+    <table class="tabela-impressao">
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>Lote</th>
+          <th>Cód. barras</th>
+          <th>Quantidade</th>
+          <th>Vencimento</th>
+          <th>Status</th>
+          <th>Cadastrado por</th>
+        </tr>
+      </thead>
+      <tbody>${linhas || `<tr><td colspan="7">Nenhum produto encontrado nesse período.</td></tr>`}</tbody>
+    </table>
+  `;
+
+  window.print();
 }
 
 function renderizarUsuarios() {
@@ -743,26 +810,28 @@ async function preencherNomeProdutoPorCodigo(codigo) {
   mostrarMensagemCadastro("Buscando nome do produto pelo código de barras...", "info");
 
   try {
-    const resposta = await fetch(`/api/produto?codigo=${encodeURIComponent(codigo)}`);
+    const resposta = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(codigo)}.json`);
     const dados = await resposta.json();
 
-    if (dados && dados.encontrado && dados.nome) {
-      let nomeFinal = dados.nome.trim();
-      const marca = (dados.marca || "").trim();
-      const quantidade = (dados.quantidade || "").trim();
+    if (dados && dados.status === 1 && dados.product) {
+      const nomeProduto = dados.product.product_name_pt || dados.product.product_name || dados.product.generic_name_pt || dados.product.generic_name;
+      const marca = dados.product.brands ? dados.product.brands.split(",")[0].trim() : "";
+      const quantidadeEmbalagem = (dados.product.quantity || "").trim();
 
-      if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
-        nomeFinal = `${marca} ${nomeFinal}`;
+      if (nomeProduto) {
+        let nomeFinal = nomeProduto.trim();
+        if (marca && !nomeFinal.toLowerCase().includes(marca.toLowerCase())) {
+          nomeFinal = `${marca} ${nomeFinal}`;
+        }
+        // junta o peso/volume no final do nome, se a base tiver essa info
+        // e ela ainda não estiver mencionada no próprio nome
+        if (quantidadeEmbalagem && !nomeFinal.toLowerCase().includes(quantidadeEmbalagem.toLowerCase())) {
+          nomeFinal = `${nomeFinal} ${quantidadeEmbalagem}`;
+        }
+        campoNome.value = nomeFinal;
+        mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
+        return;
       }
-      // junta o peso/volume no final do nome, se vier disponível
-      // e ele ainda não estiver mencionado no próprio nome
-      if (quantidade && !nomeFinal.toLowerCase().includes(quantidade.toLowerCase())) {
-        nomeFinal = `${nomeFinal} ${quantidade}`;
-      }
-
-      campoNome.value = nomeFinal;
-      mostrarMensagemCadastro(`Nome preenchido automaticamente: "${nomeFinal}". Confira e ajuste se precisar.`, "sucesso");
-      return;
     }
     mostrarMensagemCadastro("Código lido, mas não encontramos o nome desse produto na base pública. Preencha manualmente.", "erro");
   } catch (e) {
